@@ -1,3 +1,5 @@
+pub type Context = z3::Context;
+
 #[cfg(test)]
 mod tests {
     #[test]
