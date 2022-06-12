@@ -48,6 +48,15 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
 mod tests {
     use super::*;
 
+    fn pretty_print(item: syn::Item) -> String {
+        let file = syn::File {
+            attrs: vec![],
+            items: vec![item],
+            shebang: None,
+        };
+        prettyplease::unparse(&file)
+    }
+
     #[test]
     fn derive_empty_struct() {
         let input = syn::parse_quote!(
@@ -75,6 +84,16 @@ mod tests {
             }),
         ];
         let res = _derive_constraint_type(input);
-        assert_eq!(expected, res);
+        assert_eq!(expected.len(), res.len());
+        for (e, r) in expected.into_iter().zip(res) {
+            //assert_eq!(&e, &r);
+            if &e != &r {
+                panic!(
+                    "Generated code did not match expectation:\nExpected:\n{}\n\nGenerated:\n{}",
+                    pretty_print(e),
+                    pretty_print(r)
+                );
+            }
+        }
     }
 }

@@ -15,3 +15,4 @@ syn = { version="1.0.90", features = ["derive", "proc-macro", "extra-traits", "f
 
 [dev-dependencies]
 constraint_rs = { path="../constraint_rs" }
+prettyplease = "0.1.11"
