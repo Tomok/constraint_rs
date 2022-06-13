@@ -16,18 +16,24 @@ pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::Tok
 
 fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
     let ident = &input.ident;
+    let str_ident = format!("{}", ident);
     let constrait_struct_ident =
         syn::Ident::new(&format!("{}Constrained", ident), Span::call_site());
 
     let constraint_struct = syn::parse_quote!(
     pub struct #constrait_struct_ident<'ctx> {
         context: &'ctx constraint_rs::Context,
+        data_type: constraint_rs::DataType<'ctx>,
     });
     let constraint_struct_impl = syn::parse_quote!(
         impl<'ctx> #constrait_struct_ident<'ctx> {
             pub fn new(context: &'ctx constraint_rs::Context) -> Self {
+                let data_type = z3::DatatypeBuilder::new(&context, #str_ident)
+                    .variant("", vec![])
+                    .finish();
                 Self {
-                    context
+                    context,
+                    data_type
                 }
             }
         }
@@ -67,12 +73,16 @@ mod tests {
             syn::parse_quote!(
                 pub struct TestStructConstrained<'ctx> {
                     context: &'ctx constraint_rs::Context,
+                    data_type: constraint_rs::DataType<'ctx>,
                 }
             ),
             syn::parse_quote!(
                 impl<'ctx> TestStructConstrained<'ctx> {
                     pub fn new(context: &'ctx constraint_rs::Context) -> Self {
-                        Self { context }
+                        let data_type = z3::DatatypeBuilder::new(&context, "TestStruct")
+                            .variant("", vec![])
+                            .finish();
+                        Self { context, data_type }
                     }
                 }
             ),
