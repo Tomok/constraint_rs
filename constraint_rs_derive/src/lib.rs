@@ -18,19 +18,21 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
     let ident = &input.ident;
     let str_ident = format!("{}", ident);
     let constrait_struct_ident =
-        syn::Ident::new(&format!("{}Constrained", ident), Span::call_site());
+        syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site());
 
     let constraint_struct = syn::parse_quote!(
-    pub struct #constrait_struct_ident<'ctx> {
-        context: &'ctx constraint_rs::Context,
+    pub struct #constrait_struct_ident<'s, 'ctx> {
+        context: &'s constraint_rs::Context<'ctx>,
         data_type: constraint_rs::DataType<'ctx>,
     });
     let constraint_struct_impl = syn::parse_quote!(
-        impl<'ctx> #constrait_struct_ident<'ctx> {
-            pub fn new(context: &'ctx constraint_rs::Context) -> Self {
-                let data_type = z3::DatatypeBuilder::new(&context, #str_ident)
-                    .variant("", vec![])
-                    .finish();
+        impl<'s, 'ctx> #constrait_struct_ident<'s, 'ctx> {
+            pub fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                let data_type = context.enter_or_get_datatype(#str_ident, |c| {
+                    z3::DatatypeBuilder::new(c, #str_ident)
+                        .variant("", vec![])
+                        .finish()
+                });
                 Self {
                     context,
                     data_type
@@ -40,9 +42,9 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
     );
     let struct_impl = syn::parse_quote!(
     impl #ident {
-        pub fn constraint_type<'ctx>(
-            context: &'ctx constraint_rs::Context
-        ) -> #constrait_struct_ident<'ctx> {
+        pub fn constrained_type<'s, 'ctx>(
+            context: &'s constraint_rs::Context<'ctx>
+        ) -> #constrait_struct_ident<'s, 'ctx> {
             #constrait_struct_ident::new(context)
         }
     });
@@ -67,37 +69,39 @@ mod tests {
     fn derive_empty_struct() {
         let input = syn::parse_quote!(
             #[derive(Debug, ConstraintType)]
-            struct TestStruct();
+            struct Test();
         );
         let expected: [syn::Item; 3] = [
             syn::parse_quote!(
-                pub struct TestStructConstrained<'ctx> {
-                    context: &'ctx constraint_rs::Context,
+                pub struct TestConstrainedType<'s, 'ctx> {
+                    context: &'s constraint_rs::Context<'ctx>,
                     data_type: constraint_rs::DataType<'ctx>,
                 }
             ),
             syn::parse_quote!(
-                impl<'ctx> TestStructConstrained<'ctx> {
-                    pub fn new(context: &'ctx constraint_rs::Context) -> Self {
-                        let data_type = z3::DatatypeBuilder::new(&context, "TestStruct")
-                            .variant("", vec![])
-                            .finish();
+                impl<'s, 'ctx> TestConstrainedType<'s, 'ctx> {
+                    pub fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                        let data_type = context.enter_or_get_datatype("Test", |c| {
+                            z3::DatatypeBuilder::new(c, "Test")
+                                .variant("", vec![])
+                                .finish()
+                        });
                         Self { context, data_type }
                     }
                 }
             ),
             syn::parse_quote!(
-            impl TestStruct {
-                pub fn constraint_type<'ctx>(context: &'ctx constraint_rs::Context) -> TestStructConstrained<'ctx> {
-                    TestStructConstrained::new(context)
+                impl Test {
+                    pub fn constrained_type<'s, 'ctx>(context: &'s constraint_rs::Context<'ctx>) -> TestConstrainedType<'s, 'ctx> {
+                        TestConstrainedType::new(context)
+                    }
                 }
-            }),
+            ),
         ];
         let res = _derive_constraint_type(input);
         assert_eq!(expected.len(), res.len());
         for (e, r) in expected.into_iter().zip(res) {
-            //assert_eq!(&e, &r);
-            if &e != &r {
+            if e != r {
                 panic!(
                     "Generated code did not match expectation:\nExpected:\n{}\n\nGenerated:\n{}",
                     pretty_print(e),

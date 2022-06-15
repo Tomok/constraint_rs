@@ -10,9 +10,12 @@ mod tests {
         #[test]
         fn test() {
             let cfg = z3::Config::new();
-            let ctx = constraint_rs::Context::new(&cfg);
-            let ct = TestStruct::constraint_type(&ctx);
-            // currently no functions on ct ... but being able to create it is also a good test
+            let z3_context = z3::Context::new(&cfg);
+            let context = constraint_rs::Context::new(&z3_context);
+            {
+                let ct = TestStruct::constrained_type(&context);
+                drop(ct);
+            } // currently no functions on ct ... but being able to create it is also a good test
         }
     }
     #[test]
