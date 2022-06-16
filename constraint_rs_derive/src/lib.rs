@@ -17,17 +17,21 @@ pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::Tok
 fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
     let ident = &input.ident;
     let str_ident = format!("{}", ident);
-    let constrait_struct_ident =
+    let constraint_struct_ident =
         syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site());
 
     let constraint_struct = syn::parse_quote!(
-    pub struct #constrait_struct_ident<'s, 'ctx> {
-        context: &'s constraint_rs::Context<'ctx>,
-        data_type: constraint_rs::DataType<'ctx>,
-    });
+        pub struct #constraint_struct_ident<'s, 'ctx> {
+            context: &'s constraint_rs::Context<'ctx>,
+            data_type: constraint_rs::DataType<'ctx>,
+        }
+    );
     let constraint_struct_impl = syn::parse_quote!(
-        impl<'s, 'ctx> #constrait_struct_ident<'s, 'ctx> {
-            pub fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+        impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for #constraint_struct_ident<'s, 'ctx>
+        where
+            'ctx: 's,
+        {
+            fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
                 let data_type = context.enter_or_get_datatype(#str_ident, |c| {
                     z3::DatatypeBuilder::new(c, #str_ident)
                         .variant("", vec![])
@@ -41,13 +45,13 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
         }
     );
     let struct_impl = syn::parse_quote!(
-    impl #ident {
-        pub fn constrained_type<'s, 'ctx>(
-            context: &'s constraint_rs::Context<'ctx>
-        ) -> #constrait_struct_ident<'s, 'ctx> {
-            #constrait_struct_ident::new(context)
+        impl<'s, 'ctx> constraint_rs::HasConstrainedType<'s, 'ctx> for #ident
+        where
+            'ctx: 's,
+        {
+            type ConstrainedType = #constraint_struct_ident<'s, 'ctx>;
         }
-    });
+    );
 
     [constraint_struct, constraint_struct_impl, struct_impl]
 }
@@ -79,8 +83,11 @@ mod tests {
                 }
             ),
             syn::parse_quote!(
-                impl<'s, 'ctx> TestConstrainedType<'s, 'ctx> {
-                    pub fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for TestConstrainedType<'s, 'ctx>
+                where
+                    'ctx: 's,
+                {
+                    fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
                         let data_type = context.enter_or_get_datatype("Test", |c| {
                             z3::DatatypeBuilder::new(c, "Test")
                                 .variant("", vec![])
@@ -91,10 +98,11 @@ mod tests {
                 }
             ),
             syn::parse_quote!(
-                impl Test {
-                    pub fn constrained_type<'s, 'ctx>(context: &'s constraint_rs::Context<'ctx>) -> TestConstrainedType<'s, 'ctx> {
-                        TestConstrainedType::new(context)
-                    }
+                impl<'s, 'ctx> constraint_rs::HasConstrainedType<'s, 'ctx> for Test
+                where
+                    'ctx: 's,
+                {
+                    type ConstrainedType = TestConstrainedType<'s, 'ctx>;
                 }
             ),
         ];

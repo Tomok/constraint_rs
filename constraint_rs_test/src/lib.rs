@@ -4,6 +4,8 @@ mod tests {
     mod empty_struct {
         use constraint_rs_derive::ConstraintType;
 
+        use constraint_rs::HasConstrainedType;
+
         #[derive(ConstraintType)]
         struct TestStruct {}
 

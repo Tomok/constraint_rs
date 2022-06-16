@@ -1,5 +1,23 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+pub trait HasConstrainedType<'s, 'ctx>
+where
+    'ctx: 's,
+{
+    type ConstrainedType: ConstrainedType<'s, 'ctx>;
+
+    fn constrained_type(context: &'s Context<'ctx>) -> Self::ConstrainedType {
+        Self::ConstrainedType::new(context)
+    }
+}
+
+pub trait ConstrainedType<'s, 'ctx>
+where
+    'ctx: 's,
+{
+    fn new(context: &'s Context<'ctx>) -> Self;
+}
+
 #[derive(Clone)]
 pub struct DataType<'ctx>(Rc<z3::DatatypeSort<'ctx>>);
 
@@ -82,8 +100,11 @@ mod tests {
             data_type: DataType<'ctx>,
         }
 
-        impl<'s, 'ctx> EmptyConstrainedType<'s, 'ctx> {
-            pub fn new(context: &'s Context<'ctx>) -> Self {
+        impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for EmptyConstrainedType<'s, 'ctx>
+        where
+            'ctx: 's,
+        {
+            fn new(context: &'s Context<'ctx>) -> Self {
                 let data_type = context.enter_or_get_datatype("TestStruct", |c| {
                     z3::DatatypeBuilder::new(c, "TestStruct")
                         .variant("", vec![])
@@ -100,6 +121,23 @@ mod tests {
             let context = Context::new(&ctx);
             let ts1 = EmptyConstrainedType::new(&context);
             let ts2 = EmptyConstrainedType::new(&context);
+            assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
+        }
+
+        impl<'s, 'ctx> HasConstrainedType<'s, 'ctx> for Empty
+        where
+            'ctx: 's,
+        {
+            type ConstrainedType = EmptyConstrainedType<'s, 'ctx>;
+        }
+
+        #[test]
+        fn has_constrained_datatype() {
+            let config = z3::Config::new();
+            let ctx = z3::Context::new(&config);
+            let context = Context::new(&ctx);
+            let ts1 = Empty::constrained_type(&context);
+            let ts2 = Empty::constrained_type(&context);
             assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
         }
     }
