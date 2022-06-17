@@ -13,6 +13,7 @@ macro_rules! int_impl {
 
         pub struct $ConstrainedType<'s, 'ctx> {
             context: &'s Context<'ctx>,
+            data_type_sort: z3::Sort<'ctx>,
         }
 
         impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for $ConstrainedType<'s, 'ctx>
@@ -22,12 +23,20 @@ macro_rules! int_impl {
             type ValueType = $ConstrainedValue<'ctx>;
 
             fn new(context: &'s Context<'ctx>) -> Self {
-                Self { context }
+                let data_type_sort = z3::Sort::bitvector(context.z3_context(), $bits);
+                Self {
+                    context,
+                    data_type_sort,
+                }
             }
 
             fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
                 let val = ast::BV::fresh_const(self.context.z3_context(), name_prefix, $bits);
                 Self::ValueType { val }
+            }
+
+            fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
+                &self.data_type_sort
             }
         }
 

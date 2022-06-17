@@ -16,12 +16,23 @@ pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::Tok
 
 fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
     let ident = &input.ident;
-    let str_ident = format!("{}", ident);
     let constraint_struct_ident =
         syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site());
 
     let constrained_value_ident =
         syn::Ident::new(&format!("{}ConstrainedValue", ident), Span::call_site());
+
+    let fields = match input.data {
+        syn::Data::Struct(data_struct) => DerivedFields::new(data_struct, ident),
+        syn::Data::Enum(_) => todo!(),
+        syn::Data::Union(_) => todo!(),
+    };
+
+    //split fields for usage in parse_quote later
+    let (constrained_type_new_fn, constrained_value_eval_fn) = (
+        fields.constrained_type_new_fn,
+        fields.constrained_value_eval_fn,
+    );
 
     let constraint_struct: syn::ItemStruct = syn::parse_quote!(
         pub struct #constraint_struct_ident<'s, 'ctx> {
@@ -36,17 +47,7 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
         {
             type ValueType = #constrained_value_ident<'s, 'ctx>;
 
-            fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
-                let data_type = context.enter_or_get_datatype(#str_ident, |c| {
-                    z3::DatatypeBuilder::new(c, #str_ident)
-                        .variant("", vec![])
-                        .finish()
-                });
-                Self {
-                    context,
-                    data_type
-                }
-            }
+            #constrained_type_new_fn
 
             fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
                 let val = z3::ast::Datatype::fresh_const(
@@ -55,6 +56,10 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
                     &self.data_type.z3_datatype_sort().sort,
                 );
                 Self::ValueType { val, typ: self }
+            }
+
+            fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
+                &self.data_type.z3_datatype_sort().sort
             }
         }
     );
@@ -82,9 +87,7 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
         {
             type ValueType = #ident;
 
-            fn eval(&'s self, model: &constraint_rs::Model<'ctx>,) -> Option<Self::ValueType>{
-                Some(#ident())
-            }
+            #constrained_value_eval_fn
         }
     );
 
@@ -95,6 +98,50 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
         value_def.into(),
         value_impl.into(),
     ]
+}
+
+struct DerivedFields {
+    constrained_type_new_fn: syn::ImplItemMethod,
+    constrained_value_eval_fn: syn::ImplItemMethod,
+}
+
+impl DerivedFields {
+    //todo: find better name ... new seams wrong here, as syn::* input is converted
+    fn new(data_struct: syn::DataStruct, ident: &syn::Ident) -> Self {
+        let str_ident = format!("{}", ident);
+        let constrained_type_new_fn = match data_struct.fields {
+            syn::Fields::Named(_) => todo!(),
+            syn::Fields::Unnamed(_) => todo!(),
+            syn::Fields::Unit => {
+                syn::parse_quote!(
+                    fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                    let data_type = context.enter_or_get_datatype(#str_ident, |c| {
+                        z3::DatatypeBuilder::new(c, #str_ident)
+                            .variant("", vec![])
+                            .finish()
+                    });
+                    Self {
+                        context,
+                        data_type
+                    }
+                })
+            }
+        };
+
+        let constrained_value_eval_fn = match data_struct.fields {
+            syn::Fields::Named(_) => todo!(),
+            syn::Fields::Unnamed(_) => todo!(),
+            syn::Fields::Unit => syn::parse_quote!(
+                fn eval(&'s self, model: &constraint_rs::Model<'ctx>,) -> Option<Self::ValueType>{
+                    Some(#ident)
+                }
+            ),
+        };
+        Self {
+            constrained_type_new_fn,
+            constrained_value_eval_fn,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -114,7 +161,7 @@ mod tests {
     fn derive_empty_struct() {
         let input = syn::parse_quote!(
             #[derive(Debug, ConstraintType)]
-            struct Test();
+            struct Test;
         );
         let expected: [syn::Item; 5] = [
             syn::parse_quote!(
@@ -147,6 +194,10 @@ mod tests {
                         );
                         Self::ValueType { val, typ: self }
                     }
+
+                    fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
+                        &self.data_type.z3_datatype_sort().sort
+                    }
                 }
             ),
             syn::parse_quote!(
@@ -174,7 +225,7 @@ mod tests {
                         &'s self,
                         model: &constraint_rs::Model<'ctx>,
                     ) -> Option<Self::ValueType> {
-                        Some(Test())
+                        Some(Test)
                     }
                 }
             ),

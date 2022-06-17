@@ -21,6 +21,8 @@ where
 
     fn new(context: &'s Context<'ctx>) -> Self;
     fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType;
+
+    fn z3_sort(&'s self) -> &'s z3::Sort<'ctx>;
 }
 
 /// A constant variable to be defined via constraints
@@ -158,8 +160,11 @@ mod tests {
                 );
                 Self::ValueType { val, typ: self }
             }
-        }
 
+            fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
+                &self.data_type.z3_datatype_sort().sort
+            }
+        }
         #[test]
         fn create_constrained_datatypes() {
             let config = z3::Config::new();
@@ -221,6 +226,130 @@ mod tests {
             solver.assert(&val2.val._safe_eq(&val1.val).expect("Type missmatch").not());
             assert_eq!(z3::SatResult::Unsat, solver.check());
             assert!(solver.get_model().is_none());
+        }
+    }
+
+    #[allow(unused)]
+    mod struct_derived_code_test {
+        use std::ptr;
+
+        use z3::ast::Ast;
+
+        use super::super::*;
+        /// Struct for which the derived types and functions are listed below & used for this test
+        #[derive(Debug, PartialEq, Eq)]
+        pub struct S {
+            f: u64,
+        }
+
+        pub struct SConstrainedType<'s, 'ctx> {
+            context: &'s Context<'ctx>,
+            data_type: DataType<'ctx>,
+        }
+
+        impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for SConstrainedType<'s, 'ctx>
+        where
+            'ctx: 's,
+        {
+            type ValueType = SConstrainedValue<'s, 'ctx>;
+
+            fn new(context: &'s Context<'ctx>) -> Self {
+                let fields = vec![(
+                    "f",
+                    z3::DatatypeAccessor::Sort(u64::constrained_type(context).z3_sort().clone()),
+                )];
+                let data_type = context.enter_or_get_datatype("S", |c| {
+                    z3::DatatypeBuilder::new(c, "S")
+                        .variant("", fields)
+                        .finish()
+                });
+                Self { context, data_type }
+            }
+
+            fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
+                let val = z3::ast::Datatype::fresh_const(
+                    self.context.z3_context(),
+                    name_prefix,
+                    &self.data_type.z3_datatype_sort().sort,
+                );
+                Self::ValueType { val, typ: self }
+            }
+
+            fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
+                &self.data_type.z3_datatype_sort().sort
+            }
+        }
+
+        #[test]
+        fn create_constrained_datatypes() {
+            let config = z3::Config::new();
+            let ctx = z3::Context::new(&config);
+            let context = Context::new(&ctx);
+            let ts1 = SConstrainedType::new(&context);
+            let ts2 = SConstrainedType::new(&context);
+            assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
+        }
+
+        impl<'s, 'ctx> HasConstrainedType<'s, 'ctx> for S
+        where
+            'ctx: 's,
+        {
+            type ConstrainedType = SConstrainedType<'s, 'ctx>;
+        }
+
+        #[test]
+        fn has_constrained_datatype() {
+            let config = z3::Config::new();
+            let ctx = z3::Context::new(&config);
+            let context = Context::new(&ctx);
+            let ts1 = S::constrained_type(&context);
+            let ts2 = S::constrained_type(&context);
+            assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
+        }
+
+        pub struct SConstrainedValue<'s, 'ctx> {
+            typ: &'s SConstrainedType<'s, 'ctx>,
+            val: z3::ast::Datatype<'ctx>,
+        }
+
+        impl<'s, 'ctx> ConstrainedValue<'s, 'ctx> for SConstrainedValue<'s, 'ctx>
+        where
+            'ctx: 's,
+        {
+            type ValueType = S;
+
+            fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType> {
+                let f = {
+                    let ast = self.typ.data_type.0.variants[0].accessors[0].apply(&[&self.val]);
+                    model
+                        .eval(&ast.as_bv().unwrap(), true)
+                        .unwrap()
+                        .as_u64()
+                        .unwrap()
+                };
+                Some(S { f })
+            }
+        }
+
+        #[test]
+        fn constrained_value() {
+            let config = z3::Config::new();
+            let ctx = z3::Context::new(&config);
+            let context = Context::new(&ctx);
+            let typ = S::constrained_type(&context);
+            let val1 = typ.fresh_value("val1");
+            let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
+            let f_accessor = val1.typ.data_type.0.variants[0].accessors[0].apply(&[&val1.val]);
+            solver.assert(
+                &f_accessor
+                    .as_bv()
+                    .unwrap()
+                    ._safe_eq(&z3::ast::BV::from_u64(&ctx, 42, 64))
+                    .unwrap(),
+            );
+            assert_eq!(z3::SatResult::Sat, solver.check());
+            let model = solver.get_model().unwrap();
+            assert_eq!(Some(S { f: 42 }), val1.eval(&model));
         }
     }
 }
