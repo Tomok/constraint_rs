@@ -4,15 +4,24 @@ mod tests {
     mod empty_struct {
         use constraint_rs_derive::ConstraintType;
 
-        #[derive(ConstraintType)]
-        struct TestStruct {}
+        use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
+
+        #[derive(ConstraintType, PartialEq, Eq, Debug)]
+        pub struct TestStruct();
 
         #[test]
         fn test() {
             let cfg = z3::Config::new();
-            let ctx = constraint_rs::Context::new(&cfg);
-            let ct = TestStruct::constraint_type(&ctx);
-            // currently no functions on ct ... but being able to create it is also a good test
+            let z3_context = z3::Context::new(&cfg);
+            let context = constraint_rs::Context::new(&z3_context);
+            let constrained_type = TestStruct::constrained_type(&context);
+            let constrained_value = constrained_type.fresh_value("v");
+            //todo: should not be necessary to call z3 directly in the future...
+            let solver = z3::Solver::new(&z3_context);
+            assert_eq!(z3::SatResult::Sat, solver.check());
+            let model = solver.get_model().unwrap();
+            let value = constrained_value.eval(&model).unwrap();
+            assert_eq!(TestStruct(), value);
         }
     }
     #[test]

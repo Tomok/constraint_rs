@@ -14,40 +14,87 @@ pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::Tok
     res.into()
 }
 
-fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 3] {
+fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
     let ident = &input.ident;
     let str_ident = format!("{}", ident);
-    let constrait_struct_ident =
-        syn::Ident::new(&format!("{}Constrained", ident), Span::call_site());
+    let constraint_struct_ident =
+        syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site());
 
-    let constraint_struct = syn::parse_quote!(
-    pub struct #constrait_struct_ident<'ctx> {
-        context: &'ctx constraint_rs::Context,
-        data_type: constraint_rs::DataType<'ctx>,
-    });
-    let constraint_struct_impl = syn::parse_quote!(
-        impl<'ctx> #constrait_struct_ident<'ctx> {
-            pub fn new(context: &'ctx constraint_rs::Context) -> Self {
-                let data_type = z3::DatatypeBuilder::new(&context, #str_ident)
-                    .variant("", vec![])
-                    .finish();
+    let constrained_value_ident =
+        syn::Ident::new(&format!("{}ConstrainedValue", ident), Span::call_site());
+
+    let constraint_struct: syn::ItemStruct = syn::parse_quote!(
+        pub struct #constraint_struct_ident<'s, 'ctx> {
+            context: &'s constraint_rs::Context<'ctx>,
+            data_type: constraint_rs::DataType<'ctx>,
+        }
+    );
+    let constraint_struct_impl: syn::ItemImpl = syn::parse_quote!(
+        impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for #constraint_struct_ident<'s, 'ctx>
+        where
+            'ctx: 's,
+        {
+            type ValueType = #constrained_value_ident<'s, 'ctx>;
+
+            fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                let data_type = context.enter_or_get_datatype(#str_ident, |c| {
+                    z3::DatatypeBuilder::new(c, #str_ident)
+                        .variant("", vec![])
+                        .finish()
+                });
                 Self {
                     context,
                     data_type
                 }
             }
+
+            fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
+                let val = z3::ast::Datatype::fresh_const(
+                    self.context.z3_context(),
+                    name_prefix,
+                    &self.data_type.z3_datatype_sort().sort,
+                );
+                Self::ValueType { val, typ: self }
+            }
         }
     );
-    let struct_impl = syn::parse_quote!(
-    impl #ident {
-        pub fn constraint_type<'ctx>(
-            context: &'ctx constraint_rs::Context
-        ) -> #constrait_struct_ident<'ctx> {
-            #constrait_struct_ident::new(context)
+    let struct_impl: syn::ItemImpl = syn::parse_quote!(
+        impl<'s, 'ctx> constraint_rs::HasConstrainedType<'s, 'ctx> for #ident
+        where
+            'ctx: 's,
+        {
+            type ConstrainedType = #constraint_struct_ident<'s, 'ctx>;
         }
-    });
+    );
 
-    [constraint_struct, constraint_struct_impl, struct_impl]
+    let value_def: syn::ItemStruct = syn::parse_quote!(
+        pub struct #constrained_value_ident<'s, 'ctx>{
+            typ: &'s #constraint_struct_ident<'s, 'ctx>,
+            val: z3::ast::Datatype<'ctx>,
+        }
+    );
+
+    //todo: actual eval implementation for things with fields...
+    let value_impl: syn::ItemImpl = syn::parse_quote!(
+        impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'s, 'ctx>
+        where
+            'ctx: 's,
+        {
+            type ValueType = #ident;
+
+            fn eval(&'s self, model: &constraint_rs::Model<'ctx>,) -> Option<Self::ValueType>{
+                Some(#ident())
+            }
+        }
+    );
+
+    [
+        constraint_struct.into(),
+        constraint_struct_impl.into(),
+        struct_impl.into(),
+        value_def.into(),
+        value_impl.into(),
+    ]
 }
 
 #[cfg(test)]
@@ -67,42 +114,88 @@ mod tests {
     fn derive_empty_struct() {
         let input = syn::parse_quote!(
             #[derive(Debug, ConstraintType)]
-            struct TestStruct();
+            struct Test();
         );
-        let expected: [syn::Item; 3] = [
+        let expected: [syn::Item; 5] = [
             syn::parse_quote!(
-                pub struct TestStructConstrained<'ctx> {
-                    context: &'ctx constraint_rs::Context,
+                pub struct TestConstrainedType<'s, 'ctx> {
+                    context: &'s constraint_rs::Context<'ctx>,
                     data_type: constraint_rs::DataType<'ctx>,
                 }
             ),
             syn::parse_quote!(
-                impl<'ctx> TestStructConstrained<'ctx> {
-                    pub fn new(context: &'ctx constraint_rs::Context) -> Self {
-                        let data_type = z3::DatatypeBuilder::new(&context, "TestStruct")
-                            .variant("", vec![])
-                            .finish();
+                impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for TestConstrainedType<'s, 'ctx>
+                where
+                    'ctx: 's,
+                {
+                    type ValueType = TestConstrainedValue<'s, 'ctx>;
+
+                    fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                        let data_type = context.enter_or_get_datatype("Test", |c| {
+                            z3::DatatypeBuilder::new(c, "Test")
+                                .variant("", vec![])
+                                .finish()
+                        });
                         Self { context, data_type }
+                    }
+
+                    fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
+                        let val = z3::ast::Datatype::fresh_const(
+                            self.context.z3_context(),
+                            name_prefix,
+                            &self.data_type.z3_datatype_sort().sort,
+                        );
+                        Self::ValueType { val, typ: self }
                     }
                 }
             ),
             syn::parse_quote!(
-            impl TestStruct {
-                pub fn constraint_type<'ctx>(context: &'ctx constraint_rs::Context) -> TestStructConstrained<'ctx> {
-                    TestStructConstrained::new(context)
+                impl<'s, 'ctx> constraint_rs::HasConstrainedType<'s, 'ctx> for Test
+                where
+                    'ctx: 's,
+                {
+                    type ConstrainedType = TestConstrainedType<'s, 'ctx>;
                 }
-            }),
+            ),
+            syn::parse_quote!(
+                pub struct TestConstrainedValue<'s, 'ctx> {
+                    typ: &'s TestConstrainedType<'s, 'ctx>,
+                    val: z3::ast::Datatype<'ctx>,
+                }
+            ),
+            syn::parse_quote!(
+                impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for TestConstrainedValue<'s, 'ctx>
+                where
+                    'ctx: 's,
+                {
+                    type ValueType = Test;
+
+                    fn eval(
+                        &'s self,
+                        model: &constraint_rs::Model<'ctx>,
+                    ) -> Option<Self::ValueType> {
+                        Some(Test())
+                    }
+                }
+            ),
         ];
         let res = _derive_constraint_type(input);
         assert_eq!(expected.len(), res.len());
         for (e, r) in expected.into_iter().zip(res) {
-            //assert_eq!(&e, &r);
-            if &e != &r {
-                panic!(
-                    "Generated code did not match expectation:\nExpected:\n{}\n\nGenerated:\n{}",
-                    pretty_print(e),
-                    pretty_print(r)
-                );
+            if e != r {
+                let expectation_pretty_printed = pretty_print(e.clone());
+                let generated_pretty_printed = pretty_print(r.clone());
+                if expectation_pretty_printed != generated_pretty_printed {
+                    panic!(
+                        "Generated code did not match expectation:\nExpected:\n{}\n\nGenerated:\n{}",
+                        expectation_pretty_printed, generated_pretty_printed
+                    );
+                } else {
+                    assert_eq!(
+                        &e, &r,
+                        "generated symbols differ, but pretty print was identical"
+                    );
+                }
             }
         }
     }
