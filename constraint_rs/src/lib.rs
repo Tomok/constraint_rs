@@ -1,5 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
+mod impls;
+
 pub trait HasConstrainedType<'s, 'ctx>
 where
     'ctx: 's,
