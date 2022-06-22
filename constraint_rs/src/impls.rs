@@ -35,6 +35,12 @@ macro_rules! int_impl {
                 Self::ValueType { val }
             }
 
+            fn value_from_z3_dynamic(&'s self, val: z3::ast::Dynamic<'ctx>) -> Option<Self::ValueType> {
+                Some(Self::ValueType {
+                    val: val.as_bv()?
+                })
+            }
+
             fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
                 &self.data_type_sort
             }
@@ -54,14 +60,14 @@ macro_rules! int_impl {
                 let a = model
                     .eval(&self.val.to_int(is_signed!($signed)), false)
                     .unwrap();
-                dbg!(&a);
                 let b = as_x64!(a, $signed);
-                dbg!(&b);
                 b?.try_into().ok()
             }
         }
     };
 }
+
+impl<'ctx> U64ConstrainedValue<'ctx> {}
 
 macro_rules! is_signed {
     (signed) => {

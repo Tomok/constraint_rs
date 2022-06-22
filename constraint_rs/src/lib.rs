@@ -17,10 +17,11 @@ pub trait ConstrainedType<'s, 'ctx>
 where
     'ctx: 's,
 {
-    type ValueType: ConstrainedValue<'s, 'ctx>;
+    type ValueType: ConstrainedValue<'s, 'ctx> + Sized;
 
     fn new(context: &'s Context<'ctx>) -> Self;
     fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType;
+    fn value_from_z3_dynamic(&'s self, val: z3::ast::Dynamic<'ctx>) -> Option<Self::ValueType>;
 
     fn z3_sort(&'s self) -> &'s z3::Sort<'ctx>;
 }
@@ -158,13 +159,25 @@ mod tests {
                     name_prefix,
                     &self.data_type.z3_datatype_sort().sort,
                 );
-                Self::ValueType { val, typ: self }
+                self.value_from_z3_dynamic(z3::ast::Dynamic::from_ast(&val))
+                    .unwrap()
+            }
+
+            fn value_from_z3_dynamic(
+                &'s self,
+                val: z3::ast::Dynamic<'ctx>,
+            ) -> Option<Self::ValueType> {
+                Some(Self::ValueType {
+                    val: val.as_datatype()?,
+                    typ: self,
+                })
             }
 
             fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
                 &self.data_type.z3_datatype_sort().sort
             }
         }
+
         #[test]
         fn create_constrained_datatypes() {
             let config = z3::Config::new();
@@ -235,6 +248,8 @@ mod tests {
 
         use z3::ast::Ast;
 
+        use crate::impls::U64ConstrainedValue;
+
         use super::super::*;
         /// Struct for which the derived types and functions are listed below & used for this test
         #[derive(Debug, PartialEq, Eq)]
@@ -272,7 +287,22 @@ mod tests {
                     name_prefix,
                     &self.data_type.z3_datatype_sort().sort,
                 );
-                Self::ValueType { val, typ: self }
+                self.value_from_z3_dynamic(z3::ast::Dynamic::from_ast(&val))
+                    .unwrap()
+            }
+
+            fn value_from_z3_dynamic(
+                &'s self,
+                val: z3::ast::Dynamic<'ctx>,
+            ) -> Option<Self::ValueType> {
+                let f = u64::constrained_type(self.context).value_from_z3_dynamic(
+                    self.data_type.0.variants[0].accessors[0].apply(&[&val]),
+                )?;
+                Some(Self::ValueType {
+                    val: val.as_datatype()?,
+                    typ: self,
+                    f,
+                })
             }
 
             fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
@@ -310,6 +340,10 @@ mod tests {
         pub struct SConstrainedValue<'s, 'ctx> {
             typ: &'s SConstrainedType<'s, 'ctx>,
             val: z3::ast::Datatype<'ctx>,
+            pub f: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
+                's,
+                'ctx,
+            >>::ValueType, //U64ConstrainedValue<'ctx>,
         }
 
         impl<'s, 'ctx> ConstrainedValue<'s, 'ctx> for SConstrainedValue<'s, 'ctx>
@@ -319,14 +353,7 @@ mod tests {
             type ValueType = S;
 
             fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType> {
-                let f = {
-                    let ast = self.typ.data_type.0.variants[0].accessors[0].apply(&[&self.val]);
-                    model
-                        .eval(&ast.as_bv().unwrap(), true)
-                        .unwrap()
-                        .as_u64()
-                        .unwrap()
-                };
+                let f = self.f.eval(model)?;
                 Some(S { f })
             }
         }
