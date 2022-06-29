@@ -300,7 +300,6 @@ mod tests {
                 )?;
                 Some(Self::ValueType {
                     val: val.as_datatype()?,
-                    typ: self,
                     f,
                 })
             }
@@ -338,7 +337,6 @@ mod tests {
         }
 
         pub struct SConstrainedValue<'s, 'ctx> {
-            typ: &'s SConstrainedType<'s, 'ctx>,
             val: z3::ast::Datatype<'ctx>,
             pub f: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
                 's,
@@ -366,7 +364,7 @@ mod tests {
             let typ = S::constrained_type(&context);
             let val1 = typ.fresh_value("val1");
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
-            let f_accessor = val1.typ.data_type.0.variants[0].accessors[0].apply(&[&val1.val]);
+            let f_accessor = typ.data_type.0.variants[0].accessors[0].apply(&[&val1.val]);
             solver.assert(
                 &f_accessor
                     .as_bv()
