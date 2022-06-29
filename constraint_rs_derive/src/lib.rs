@@ -29,9 +29,10 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
     };
 
     //split fields for usage in parse_quote later
-    let (constrained_type_new_fn, constrained_value_eval_fn) = (
+    let (constrained_type_new_fn, constrained_value_eval_fn, constrained_value_fields) = (
         fields.constrained_type_new_fn,
         fields.constrained_value_eval_fn,
+        fields.constrained_value_fields,
     );
 
     let constraint_struct: syn::ItemStruct = syn::parse_quote!(
@@ -45,7 +46,7 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
         where
             'ctx: 's,
         {
-            type ValueType = #constrained_value_ident<'s, 'ctx>;
+            type ValueType = #constrained_value_ident<'ctx>;
 
             #constrained_type_new_fn
 
@@ -69,7 +70,6 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
                 )?;*/
                 Some(Self::ValueType {
                     val: val.as_datatype()?,
-                    typ: self,
                 })
             }
 
@@ -88,15 +88,13 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
     );
 
     let value_def: syn::ItemStruct = syn::parse_quote!(
-        pub struct #constrained_value_ident<'s, 'ctx>{
-            typ: &'s #constraint_struct_ident<'s, 'ctx>,
-            val: z3::ast::Datatype<'ctx>,
-        }
+        pub struct #constrained_value_ident<'ctx>
+            #constrained_value_fields
     );
 
     //todo: actual eval implementation for things with fields...
     let value_impl: syn::ItemImpl = syn::parse_quote!(
-        impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'s, 'ctx>
+        impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'ctx>
         where
             'ctx: 's,
         {
@@ -118,6 +116,7 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
 struct DerivedFields {
     constrained_type_new_fn: syn::ImplItemMethod,
     constrained_value_eval_fn: syn::ImplItemMethod,
+    constrained_value_fields: syn::FieldsNamed,
 }
 
 impl DerivedFields {
@@ -202,9 +201,16 @@ impl DerivedFields {
             }
         );
 
+        let constrained_value_fields = syn::parse_quote!(
+            {
+                val: z3::ast::Datatype<'ctx>,
+            }
+        );
+
         Self {
             constrained_type_new_fn,
             constrained_value_eval_fn,
+            constrained_value_fields,
         }
     }
 
@@ -265,7 +271,7 @@ mod tests {
                 where
                     'ctx: 's,
                 {
-                    type ValueType = TestConstrainedValue<'s, 'ctx>;
+                    type ValueType = TestConstrainedValue<'ctx>;
 
                     fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
                         let data_type = context.enter_or_get_datatype("Test", |c| {
@@ -296,7 +302,6 @@ mod tests {
                         )?;*/
                         Some(Self::ValueType {
                             val: val.as_datatype()?,
-                            typ: self,
                         })
                     }
 
@@ -314,13 +319,12 @@ mod tests {
                 }
             ),
             syn::parse_quote!(
-                pub struct TestConstrainedValue<'s, 'ctx> {
-                    typ: &'s TestConstrainedType<'s, 'ctx>,
+                pub struct TestConstrainedValue<'ctx> {
                     val: z3::ast::Datatype<'ctx>,
                 }
             ),
             syn::parse_quote!(
-                impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for TestConstrainedValue<'s, 'ctx>
+                impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for TestConstrainedValue<'ctx>
                 where
                     'ctx: 's,
                 {
