@@ -64,6 +64,14 @@ macro_rules! int_impl {
                 b?.try_into().ok()
             }
         }
+
+        impl<'ctx> $ConstrainedValue<'ctx> {
+            //todo: temporary for tests ... to be replaced when other functions for defining
+            //constraints were added
+            pub fn val(&self) -> &z3::ast::BV<'ctx> {
+                &self.val
+            }
+        }
     };
 }
 
