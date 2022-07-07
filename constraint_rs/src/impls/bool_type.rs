@@ -77,6 +77,9 @@ where
     fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
         ast::Ast::_eq(&self.val, &other.val).into()
     }
+    fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+        solver.assert(&self._eq(&value.constrained(solver.get_context())).val());
+    }
 }
 
 impl<'ctx> From<ast::Bool<'ctx>> for BoolConstrainedValue<'ctx> {

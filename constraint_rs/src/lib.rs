@@ -56,6 +56,11 @@ where
 
     // comparison functions
     fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue;
+
+    /**
+     * Constrain this object to match the given value
+     **/
+    fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType);
 }
 
 pub type Model<'ctx> = z3::Model<'ctx>;
@@ -244,6 +249,10 @@ mod tests {
             fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
                 z3::ast::Ast::_eq(&self.val, &other.val).into()
             }
+
+            fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+                //nothing to do here
+            }
         }
 
         #[test]
@@ -381,6 +390,10 @@ mod tests {
 
             fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
                 z3::ast::Ast::_eq(&self.val, &other.val).into()
+            }
+
+            fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+                self.f.assign_value(solver, &value.f);
             }
         }
 
