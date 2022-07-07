@@ -35,10 +35,11 @@ macro_rules! int_impl {
                 Self::ValueType { val }
             }
 
-            fn value_from_z3_dynamic(&'s self, val: z3::ast::Dynamic<'ctx>) -> Option<Self::ValueType> {
-                Some(Self::ValueType {
-                    val: val.as_bv()?
-                })
+            fn value_from_z3_dynamic(
+                &'s self,
+                val: z3::ast::Dynamic<'ctx>,
+            ) -> Option<Self::ValueType> {
+                Some(Self::ValueType { val: val.as_bv()? })
             }
 
             fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {

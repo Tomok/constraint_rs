@@ -2,9 +2,9 @@ extern crate proc_macro;
 
 use proc_macro2::Span;
 use quote::ToTokens;
-use syn::DeriveInput;
+use syn::{DeriveInput, Token};
 
-#[proc_macro_derive(ConstraintType)]
+#[proc_macro_derive(ConstrainedType)]
 pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse(input).unwrap();
     let derived = _derive_constraint_type(input);
@@ -52,7 +52,7 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
         where
             'ctx: 's,
         {
-            type ValueType = #constrained_value_ident<'ctx>;
+            type ValueType = #constrained_value_ident<'s, 'ctx>;
 
             #constrained_type_new_fn
 
@@ -83,13 +83,13 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
     );
 
     let value_def: syn::ItemStruct = syn::parse_quote!(
-        pub struct #constrained_value_ident<'ctx>
+        pub struct #constrained_value_ident<'s, 'ctx>
             #constrained_value_fields
     );
 
     //todo: actual eval implementation for things with fields...
     let value_impl: syn::ItemImpl = syn::parse_quote!(
-        impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'ctx>
+        impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'s, 'ctx>
         where
             'ctx: 's,
         {
@@ -162,9 +162,8 @@ impl ParsedField {
             syn::Type::Never(_) => todo!(),
             syn::Type::Paren(_) => todo!(),
             syn::Type::Path(p) => {
-                syn::parse_quote!(
-                    z3::DatatypeAccessor::Sort(#p::constrained_type(context).z3_sort().clone()),
-                )
+                syn::parse_quote!( #p )
+                //z3::DatatypeAccessor::Sort(#p::constrained_type(context).z3_sort().clone()),
             }
             syn::Type::Ptr(_) => todo!(),
             syn::Type::Reference(_) => todo!(),
@@ -230,11 +229,15 @@ impl DerivedFields {
     }
 
     fn constrained_type_new_fn(str_ident: &str, fields: &[ParsedField]) -> syn::ImplItemMethod {
+        // let fields = vec![(
+        //    "f",
+        //    z3::DatatypeAccessor::Sort(u64::constrained_type(context).z3_sort().clone()),
+        //)];
         let field_entries = fields.iter().map(|f| {
             let i = &f.ident;
             let t = &f.data_type;
             let t: syn::Expr = syn::parse_quote!(
-                (#i, z3::DatatypeAccessor::Sort(#t)),
+                (#i, z3::DatatypeAccessor::Sort(#t::constrained_type(context).z3_sort().clone()))
             );
             t
         });
@@ -256,56 +259,119 @@ impl DerivedFields {
 
     fn constrained_value_fields(fields: &[ParsedField]) -> syn::FieldsNamed {
         let field_entries = fields.iter().map(|f| {
-            let i = &f.ident;
-            if i == "val" {
+            if f.ident == "val" {
                 //todo: maybe use different field name instead of failing...
                 panic!("Dervied structs may not contain a field val, needed for internal purposes");
             }
+            let i = syn::Ident::new(&f.ident, Span::call_site());
             let d = &f.data_type;
             /*pub f: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
                     's,
                     'ctx,
                 >>::ValueType, //U64ConstrainedValue<'ctx>,
             */
-            let t: syn::Expr = syn::parse_quote!(
-                pub #i: << #d as HasConstrainedType<'s, 'ctx>>::ConstraintType as ConstraintType<'s, 'ctx>::ValueType,
+            let ty: syn::TypePath = syn::parse_quote!(
+                 <<#d as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
+                    's,
+                    'ctx
+                >>::ValueType
             );
-            t
-        });
 
-        syn::parse_quote!({
-            val: z3::ast::Datatype<'ctx>,
-            #(#field_entries),*
-        })
+            syn::Field {
+                attrs: vec![],
+                vis: syn::Visibility::Public(syn::VisPublic {
+                    pub_token: Token![pub](Span::call_site()),
+                }),
+                ident: Some(i),
+                colon_token: Some(Token![:](Span::call_site())),
+                ty: syn::Type::Path(ty),
+            }
+        });
+        //let t2 = quote!({
+        //    val: z3::ast::Datatype<'ctx>,
+        //    #(#field_entries),*
+        //});
+        //dbg!(format!("{}", t2.to_token_stream()));
+        //todo!()
+        let mut named_fields = syn::punctuated::Punctuated::new();
+        named_fields.push(syn::Field {
+            attrs: vec![],
+            vis: syn::Visibility::Inherited,
+            ident: Some(syn::Ident::new("val", Span::call_site())),
+            colon_token: Some(Token![:](Span::call_site())),
+            ty: syn::parse_quote!(z3::ast::Datatype<'ctx>),
+        });
+        if fields.is_empty() {
+            //create dummy field, to ensure lifetime 's is used
+            let dummy = syn::Field {
+                attrs: vec![],
+                vis: syn::Visibility::Inherited,
+                ident: Some(syn::Ident::new("dummy", Span::call_site())),
+                colon_token: Some(Token![:](Span::call_site())),
+                ty: syn::parse_quote!(std::marker::PhantomData<&'s ()>),
+            };
+            named_fields.push(dummy);
+        } else {
+            named_fields.extend(field_entries);
+        }
+        syn::FieldsNamed {
+            brace_token: syn::token::Brace {
+                span: Span::call_site(),
+            },
+            named: named_fields,
+        }
     }
 
     fn constrained_type_value_from_z3_dynamic(fields: &[ParsedField]) -> syn::ImplItemMethod {
         /*  fill fields here, e.g.:
         let f = u64::constrained_type(self.context).value_from_z3_dynamic(
-            self.data_type.0.variants[0].accessors[0].apply(&[&val]),
+            self.data_type.z3_datatype_sort().variants[0].accessors[0].apply(&[&val]),
         )?;*/
-        let field_assingments = fields.iter().enumerate()
+        if fields.is_empty() {
+            syn::parse_quote!(
+                fn value_from_z3_dynamic(
+                    &'s self,
+                    val: z3::ast::Dynamic<'ctx>,
+                ) -> Option<Self::ValueType> {
+                    let dummy = std::marker::PhantomData;
+                    Some(Self::ValueType {
+                        val: val.as_datatype()?,
+                        dummy,
+                    })
+                }
+            )
+        } else {
+            let field_assingments = fields.iter().enumerate()
             .map(|(index, field)|{
-                let f = &field.ident;
+                let f = syn::Ident::new(&field.ident, Span::call_site());
                 let d = &field.data_type;
-                let a: syn::Expr = syn::parse_quote!(let #f = <#d as HasConstraintType>::constrained_type(self.context).value_from_z3_dynamic(
-                    self.data_type.0.variants[0].accessors[#index].apply(&[&val])
-                        )?;);
+                let apply_call : syn::ExprMethodCall = syn::parse_quote!(
+                    self.data_type.z3_datatype_sort().variants[0].accessors[#index].apply(&[&val])
+                );
+                let val_call: syn::ExprMethodCall = syn::parse_quote!(
+                    <#d as HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic( #apply_call )
+                );
+                let a: syn::Expr = syn::parse_quote!(
+                    let #f = #val_call?
+                );
                 a
             });
-        let class_fields = fields.iter().map(|field| &field.ident);
-        syn::parse_quote!(
-            fn value_from_z3_dynamic(
-                &'s self,
-                val: z3::ast::Dynamic<'ctx>,
-            ) -> Option<Self::ValueType> {
-                #(#field_assingments;)*
-                Some(Self::ValueType {
-                    val: val.as_datatype()?,
-                    #(#class_fields),*
-                })
-            }
-        )
+            let class_fields = fields
+                .iter()
+                .map(|field| syn::Ident::new(&field.ident, Span::call_site()));
+            syn::parse_quote!(
+                fn value_from_z3_dynamic(
+                    &'s self,
+                    val: z3::ast::Dynamic<'ctx>
+                ) -> Option<Self::ValueType> {
+                    #(#field_assingments;)*
+                    Some(Self::ValueType {
+                        val: val.as_datatype()?,
+                        #(#class_fields),*
+                    })
+                }
+            )
+        }
     }
 
     fn constrained_value_eval_fn(
@@ -334,6 +400,8 @@ impl DerivedFields {
 
 #[cfg(test)]
 mod tests {
+    use syn::parse_quote;
+
     use super::*;
 
     fn pretty_print(item: syn::Item) -> String {
@@ -348,7 +416,7 @@ mod tests {
     #[test]
     fn derive_empty_struct() {
         let input = syn::parse_quote!(
-            #[derive(Debug, ConstraintType)]
+            #[derive(Debug, ConstrainedType)]
             struct Test;
         );
         let expected: [syn::Item; 5] = [
@@ -363,7 +431,7 @@ mod tests {
                 where
                     'ctx: 's,
                 {
-                    type ValueType = TestConstrainedValue<'ctx>;
+                    type ValueType = TestConstrainedValue<'s, 'ctx>;
 
                     fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
                         let data_type = context.enter_or_get_datatype("Test", |c| {
@@ -390,10 +458,12 @@ mod tests {
                     ) -> Option<Self::ValueType> {
                         /* TODO: fill fields here, e.g.:
                         let f = u64::constrained_type(self.context).value_from_z3_dynamic(
-                            self.data_type.0.variants[0].accessors[0].apply(&[&val]),
+                            self.data_type.z3_datatype_sort().variants[0].accessors[0].apply(&[&val]),
                         )?;*/
+                        let dummy = std::marker::PhantomData;
                         Some(Self::ValueType {
                             val: val.as_datatype()?,
+                            dummy,
                         })
                     }
 
@@ -411,12 +481,13 @@ mod tests {
                 }
             ),
             syn::parse_quote!(
-                pub struct TestConstrainedValue<'ctx> {
+                pub struct TestConstrainedValue<'s, 'ctx> {
                     val: z3::ast::Datatype<'ctx>,
+                    dummy: std::marker::PhantomData<&'s ()>,
                 }
             ),
             syn::parse_quote!(
-                impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for TestConstrainedValue<'ctx>
+                impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for TestConstrainedValue<'s, 'ctx>
                 where
                     'ctx: 's,
                 {
@@ -450,5 +521,124 @@ mod tests {
                 }
             }
         }
+    }
+
+    fn one_field() -> Vec<ParsedField> {
+        vec![ParsedField {
+            ident: "my_u32_field".to_string(),
+            data_type: parse_quote! {
+                u32
+            },
+            //z3::DatatypeAccessor::Sort(u32::constrained_type(context).z3_sort().clone())
+        }]
+    }
+
+    fn harmonize_syn_str(i: &str) -> String {
+        let mut result = i.trim().replace('\n', " ").replace('\t', " ");
+        while result.contains("  ") {
+            result = result.replace("  ", " ");
+        }
+        result
+            .replace(" .", ".")
+            .replace(". ", ".")
+            .replace(" :: ", "::")
+            .replace(" (", "(")
+            .replace("( ", "(")
+            .replace(" )", ")")
+            .replace(" <", "<")
+            .replace("< ", "<")
+            .replace(" >", ">")
+            .replace("> ", ">")
+            .replace("& '", "&'")
+            .replace("| ", "|")
+            .replace(" |", "|")
+            .replace(" ,", ",")
+            .replace(" :", ":")
+            .replace(" !", "!")
+            .replace("! ", "!")
+            .replace(" ;", ";")
+            .replace("; ", ";")
+            .replace(" ?", "?")
+    }
+
+    #[test]
+    fn constrained_type_new_fn() {
+        let expected = "fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+                let data_type = context.enter_or_get_datatype(\"MyType\", |c| {
+                    z3::DatatypeBuilder::new(c, \"MyType\")
+                        .variant(
+                            \"\",
+                            vec![(
+                                \"my_u32_field\",
+                                z3::DatatypeAccessor::Sort(
+                                    u32::constrained_type(context).z3_sort().clone()
+                                )
+                            )]
+                        )
+                        .finish()
+                });
+                Self { context, data_type }
+            }";
+        let str_ident = "MyType";
+        let generated = DerivedFields::constrained_type_new_fn(str_ident, &one_field());
+        let generated_str = format!("{}", generated.to_token_stream());
+        assert_eq!(
+            harmonize_syn_str(expected),
+            harmonize_syn_str(&generated_str)
+        );
+    }
+
+    #[test]
+    fn constrained_value_fields() {
+        let expected = "{
+            val: z3::ast::Datatype<'ctx>,
+            pub my_u32_field: << u32 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType
+        }";
+        let generated = DerivedFields::constrained_value_fields(&one_field());
+        let generated_str = format!("{}", generated.to_token_stream());
+        assert_eq!(
+            harmonize_syn_str(expected),
+            harmonize_syn_str(&generated_str)
+        );
+    }
+
+    #[test]
+    fn constrained_type_value_from_z3_dynamic() {
+        let expected = "
+            fn value_from_z3_dynamic(&'s self, val: z3::ast::Dynamic<'ctx>) ->Option<Self::ValueType>
+            {
+                let my_u32_field =<u32 as HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic(
+                    self.data_type.z3_datatype_sort().variants [0].accessors [0usize].apply(& [& val]))?;
+                Some(Self::ValueType {
+                    val: val.as_datatype()?,
+                    my_u32_field
+                })
+            }
+        ";
+
+        let generated = DerivedFields::constrained_type_value_from_z3_dynamic(&one_field());
+        let generated_str = format!("{}", generated.to_token_stream());
+        assert_eq!(
+            harmonize_syn_str(expected),
+            harmonize_syn_str(&generated_str)
+        );
+    }
+
+    #[test]
+    fn constrained_value_eval_fn() {
+        let expected = "
+            fn eval(&'s self, model: & constraint_rs::Model<'ctx>) ->Option<Self::ValueType>{
+                let my_u32_field = self.my_u32_field.eval(model)?;
+                Some(MyType { my_u32_field })
+            }
+        ";
+        let ident = syn::Ident::new("MyType", Span::call_site());
+        let generated =
+            DerivedFields::constrained_value_eval_fn(StructType::Named, &ident, &one_field());
+        let generated_str = format!("{}", generated.to_token_stream());
+        assert_eq!(
+            harmonize_syn_str(expected),
+            harmonize_syn_str(&generated_str)
+        );
     }
 }
