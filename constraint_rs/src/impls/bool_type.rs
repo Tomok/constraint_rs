@@ -9,6 +9,21 @@ where
     type ConstrainedType = BoolConstrainedType<'s, 'ctx>;
 }
 
+impl<'s, 'ctx> HasSimpleConstrainedType<'s, 'ctx> for bool
+where
+    'ctx: 's,
+{
+    type ConstrainedType = BoolConstrainedType<'s, 'ctx>;
+
+    fn constrained(
+        &self,
+        context: &'ctx z3::Context,
+    ) -> <Self::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType {
+        let val = ast::Bool::from_bool(context, *self);
+        BoolConstrainedValue { val }
+    }
+}
+
 pub struct BoolConstrainedType<'s, 'ctx> {
     context: &'s Context<'ctx>,
     data_type_sort: z3::Sort<'ctx>,
@@ -61,6 +76,9 @@ where
 
     fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
         ast::Ast::_eq(&self.val, &other.val).into()
+    }
+    fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+        solver.assert(self._eq(&value.constrained(solver.get_context())).val());
     }
 }
 

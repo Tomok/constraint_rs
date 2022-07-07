@@ -28,7 +28,6 @@ mod tests {
         use constraint_rs_derive::ConstrainedType;
 
         use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
-        use z3::ast::Ast;
 
         #[derive(ConstrainedType, PartialEq, Eq, Debug)]
         pub struct TestStruct {
@@ -42,15 +41,10 @@ mod tests {
             let context = constraint_rs::Context::new(&z3_context);
             let constrained_type = TestStruct::constrained_type(&context);
             let constrained_value = constrained_type.fresh_value("v");
-            //todo: should not be necessary to call z3 directly in the future...
             let solver = z3::Solver::new(&z3_context);
-            //todo add asserts that make field1 7 here
-            let val = constrained_value.field1.val();
-            solver.assert(
-                &val._safe_eq(&z3::ast::BV::from_u64(&z3_context, 7, 32))
-                    .unwrap(),
-            );
+            constrained_value.assign_value(&solver, &TestStruct { field1: 7 });
 
+            //todo: should not be necessary to call z3 directly in the future...
             assert_eq!(z3::SatResult::Sat, solver.check());
             let model = solver.get_model().unwrap();
             let value = constrained_value.eval(&model).unwrap();
@@ -68,12 +62,7 @@ mod tests {
             let solver = z3::Solver::new(&z3_context);
             let constrained_u32_type = u32::constrained_type(&context);
             let value7 = constrained_u32_type.fresh_value("value7");
-            solver.assert(
-                &value7
-                    .val()
-                    ._safe_eq(&z3::ast::BV::from_u64(&z3_context, 7, 32))
-                    .unwrap(),
-            );
+            value7.assign_value(&solver, &7u32);
 
             solver.assert(constrained_value.field1._eq(&value7).val());
             assert_eq!(z3::SatResult::Sat, solver.check());

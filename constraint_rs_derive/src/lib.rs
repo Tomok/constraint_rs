@@ -33,11 +33,13 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
         constrained_type_new_fn,
         constrained_value_eval_fn,
         constrained_value_fields,
+        constrained_value_assign_value_fn,
         constrained_type_value_from_z3_dynamic,
     ) = (
         fields.constrained_type_new_fn,
         fields.constrained_value_eval_fn,
         fields.constrained_value_fields,
+        fields.constrained_value_assign_value_fn,
         fields.constrained_type_value_from_z3_dynamic,
     );
 
@@ -97,6 +99,8 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
 
                 #constrained_value_eval_fn
 
+                #constrained_value_assign_value_fn
+
                 fn _eq(
                     &'s self,
                     other: &'s Self
@@ -119,6 +123,7 @@ struct DerivedFields {
     constrained_type_new_fn: syn::ImplItemMethod,
     constrained_type_value_from_z3_dynamic: syn::ImplItemMethod,
     constrained_value_eval_fn: syn::ImplItemMethod,
+    constrained_value_assign_value_fn: syn::ImplItemMethod,
     constrained_value_fields: syn::FieldsNamed,
 }
 
@@ -225,12 +230,14 @@ impl DerivedFields {
         let constrained_value_eval_fn =
             Self::constrained_value_eval_fn(struct_type, ident, &fields);
         let constrained_value_fields = Self::constrained_value_fields(&fields);
+        let constrained_value_assign_value_fn = Self::constrained_value_assign_value_fn(&fields);
         let constrained_type_value_from_z3_dynamic =
             Self::constrained_type_value_from_z3_dynamic(&fields);
         Self {
             constrained_type_new_fn,
             constrained_value_eval_fn,
             constrained_value_fields,
+            constrained_value_assign_value_fn,
             constrained_type_value_from_z3_dynamic,
         }
     }
@@ -327,6 +334,22 @@ impl DerivedFields {
             },
             named: named_fields,
         }
+    }
+
+    fn constrained_value_assign_value_fn(fields: &[ParsedField]) -> syn::ImplItemMethod {
+        let field_assingments = fields.iter().map(|f| {
+            let i = syn::Ident::new(&f.ident, Span::call_site());
+            let eval_call: syn::ExprMethodCall =
+                syn::parse_quote!(self.#i.assign_value(solver, &value.#i));
+            let t: syn::Expr = syn::parse_quote!(let #i = #eval_call);
+            t
+        });
+
+        syn::parse_quote!(
+            fn assign_value(&'s self, solver: &constraint_rs::Solver<'ctx>, value: &Self::ValueType) {
+                #(#field_assingments;)*
+            }
+        )
     }
 
     fn constrained_type_value_from_z3_dynamic(fields: &[ParsedField]) -> syn::ImplItemMethod {
@@ -505,6 +528,13 @@ mod tests {
                         model: &constraint_rs::Model<'ctx>,
                     ) -> Option<Self::ValueType> {
                         Some(Test)
+                    }
+
+                    fn assign_value(
+                        &'s self,
+                        solver: &constraint_rs::Solver<'ctx>,
+                        value: &Self::ValueType,
+                    ) {
                     }
 
                     fn _eq(

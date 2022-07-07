@@ -11,6 +11,21 @@ macro_rules! int_impl {
             type ConstrainedType = $ConstrainedType<'s, 'ctx>;
         }
 
+        impl<'s, 'ctx> HasSimpleConstrainedType<'s, 'ctx> for $ValueType
+        where
+            'ctx: 's,
+        {
+            type ConstrainedType = $ConstrainedType<'s, 'ctx>;
+
+            fn constrained(
+                &self,
+                context: &'ctx z3::Context,
+            ) -> <Self::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType {
+                let val = from_x64!($signed, context, *self, $bits);
+                $ConstrainedValue { val }
+            }
+        }
+
         pub struct $ConstrainedType<'s, 'ctx> {
             context: &'s Context<'ctx>,
             data_type_sort: z3::Sort<'ctx>,
@@ -68,6 +83,10 @@ macro_rules! int_impl {
             fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
                 ast::Ast::_eq(&self.val, &other.val).into()
             }
+
+            fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+                solver.assert(self._eq(&value.constrained(solver.get_context())).val());
+            }
         }
 
         impl<'ctx> $ConstrainedValue<'ctx> {
@@ -97,6 +116,14 @@ macro_rules! as_x64 {
     };
     ($v:ident, signed) => {
         $v.as_i64()
+    };
+}
+macro_rules! from_x64 {
+    (unsigned, $context:expr, $val:expr, $bits:literal) => {
+        z3::ast::BV::from_u64($context, $val.into(), $bits)
+    };
+    (signed, $context:expr, $val:expr, $bits:literal) => {
+        z3::ast::BV::from_i64($context, $val.into(), $bits)
     };
 }
 

@@ -15,6 +15,20 @@ where
     }
 }
 
+/// Types with this trait are simple enough, that they can be directly converted
+/// into constrained value objects, without having to go through a
+pub trait HasSimpleConstrainedType<'s, 'ctx>
+where
+    'ctx: 's,
+{
+    type ConstrainedType: ConstrainedType<'s, 'ctx>;
+
+    fn constrained(
+        &'s self,
+        context: &'ctx z3::Context, //todo: is it a good idea to pass a z3::Context here?
+    ) -> <Self::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType;
+}
+
 pub trait ConstrainedType<'s, 'ctx>
 where
     'ctx: 's,
@@ -42,9 +56,15 @@ where
 
     // comparison functions
     fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue;
+
+    /**
+     * Constrain this object to match the given value
+     **/
+    fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType);
 }
 
 pub type Model<'ctx> = z3::Model<'ctx>;
+pub type Solver<'ctx> = z3::Solver<'ctx>;
 
 #[derive(Clone)]
 pub struct DataType<'ctx>(Rc<z3::DatatypeSort<'ctx>>);
@@ -229,6 +249,10 @@ mod tests {
             fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
                 z3::ast::Ast::_eq(&self.val, &other.val).into()
             }
+
+            fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+                //nothing to do here
+            }
         }
 
         #[test]
@@ -366,6 +390,10 @@ mod tests {
 
             fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
                 z3::ast::Ast::_eq(&self.val, &other.val).into()
+            }
+
+            fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
+                self.f.assign_value(solver, &value.f);
             }
         }
 
