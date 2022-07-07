@@ -1,4 +1,5 @@
 use super::super::*;
+use super::BoolConstrainedValue;
 use z3::ast;
 
 macro_rules! int_impl {
@@ -62,6 +63,10 @@ macro_rules! int_impl {
                     .unwrap();
                 let b = as_x64!(a, $signed);
                 b?.try_into().ok()
+            }
+
+            fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
+                ast::Ast::_eq(&self.val, &other.val).into()
             }
         }
 

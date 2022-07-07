@@ -89,13 +89,20 @@ fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
 
     //todo: actual eval implementation for things with fields...
     let value_impl: syn::ItemImpl = syn::parse_quote!(
-        impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'s, 'ctx>
-        where
-            'ctx: 's,
-        {
-            type ValueType = #ident;
+            impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'s, 'ctx>
+            where
+                'ctx: 's,
+            {
+                type ValueType = #ident;
 
-            #constrained_value_eval_fn
+                #constrained_value_eval_fn
+
+                fn _eq(
+                    &'s self,
+                    other: &'s Self
+                ) -> constraint_rs::impls::BoolConstrainedValue {
+                    z3::ast::Ast::_eq(&self.val, &other.val).into()
+                }
         }
     );
 
@@ -498,6 +505,13 @@ mod tests {
                         model: &constraint_rs::Model<'ctx>,
                     ) -> Option<Self::ValueType> {
                         Some(Test)
+                    }
+
+                    fn _eq(
+                        &'s self,
+                        other: &'s Self,
+                    ) -> constraint_rs::impls::BoolConstrainedValue {
+                        z3::ast::Ast::_eq(&self.val, &other.val).into()
                     }
                 }
             ),
