@@ -185,15 +185,15 @@ enum StructType {
 }
 
 impl StructType {
-    fn wrap<I, T>(&self, e: I) -> Option<syn::Expr>
+    fn wrap<I, T>(&self, value_ident: &syn::Ident, e: I) -> syn::Expr
     where
         I: Iterator<Item = T>,
         T: quote::ToTokens,
     {
         match self {
-            StructType::Named => Some(syn::parse_quote!({ #(#e),* })),
-            StructType::Unnamed => Some(syn::parse_quote!((#(#e),*))),
-            StructType::Unit => None,
+            StructType::Named => syn::parse_quote!(#value_ident{ #(#e),* }),
+            StructType::Unnamed => syn::parse_quote!(#value_ident(#(#e),*)),
+            StructType::Unit => syn::parse_quote!(#value_ident),
         }
     }
 }
@@ -314,16 +314,19 @@ impl DerivedFields {
         fields: &[ParsedField],
     ) -> syn::ImplItemMethod {
         let field_assingments = fields.iter().map(|f| {
-            let i = &f.ident;
-            let t: syn::Expr = syn::parse_quote!(let #i = self.#i.eval(model)?;);
+            let i = syn::Ident::new(&f.ident, Span::call_site());
+            let eval_call: syn::ExprMethodCall = syn::parse_quote!(self.#i.eval(model));
+            let t: syn::Expr = syn::parse_quote!(let #i = #eval_call?);
             t
         });
-        let inits = fields.iter().map(|f| &f.ident);
-        let field_params = struct_type.wrap(inits);
+        let inits = fields
+            .iter()
+            .map(|f| syn::Ident::new(&f.ident, Span::call_site()));
+        let field_creation = struct_type.wrap(value_ident, inits);
         syn::parse_quote!(
             fn eval(&'s self, model: &constraint_rs::Model<'ctx>) -> Option<Self::ValueType> {
-                #(#field_assingments);*
-                Some(#value_ident #field_params)
+                #(#field_assingments;)*
+                Some(#field_creation)
             }
         )
     }
