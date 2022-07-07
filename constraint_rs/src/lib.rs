@@ -1,6 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-mod impls;
+use impls::BoolConstrainedValue;
+
+pub mod impls;
 
 pub trait HasConstrainedType<'s, 'ctx>
 where
@@ -37,6 +39,9 @@ where
     fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType>;
 
     //todo: add functions to iter all solutions
+
+    // comparison functions
+    fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue;
 }
 
 pub type Model<'ctx> = z3::Model<'ctx>;
@@ -220,6 +225,10 @@ mod tests {
                 // as the type is empty, it is always the following, as long as the model exists
                 Some(Empty())
             }
+
+            fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
+                z3::ast::Ast::_eq(&self.val, &other.val).into()
+            }
         }
 
         #[test]
@@ -353,6 +362,10 @@ mod tests {
             fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType> {
                 let f = self.f.eval(model)?;
                 Some(S { f })
+            }
+
+            fn _eq(&'s self, other: &'s Self) -> BoolConstrainedValue {
+                z3::ast::Ast::_eq(&self.val, &other.val).into()
             }
         }
 
