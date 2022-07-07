@@ -71,6 +71,7 @@ macro_rules! int_impl {
             'ctx: 's,
         {
             type ValueType = $ValueType;
+            type AstType = z3::ast::BV<'ctx>;
 
             fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType> {
                 let a = model
@@ -86,6 +87,10 @@ macro_rules! int_impl {
 
             fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
                 solver.assert(self._eq(&value.constrained(solver.get_context())).val());
+            }
+
+            fn z3(&'s self) -> &'s Self::AstType {
+                &self.val
             }
         }
 

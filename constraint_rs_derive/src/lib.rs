@@ -102,6 +102,7 @@ fn derive_struct(
                 'ctx: 's,
             {
                 type ValueType = #ident;
+                type AstType = z3::ast::Datatype<'ctx>;
 
                 #constrained_value_eval_fn
 
@@ -112,6 +113,10 @@ fn derive_struct(
                     other: &'s Self
                 ) -> constraint_rs::impls::BoolConstrainedValue {
                     z3::ast::Ast::_eq(&self.val, &other.val).into()
+                }
+
+                fn z3(&'s self) -> &'s Self::AstType {
+                    &self.val
                 }
         }
     );
@@ -496,6 +501,7 @@ mod tests {
                     'ctx: 's,
                 {
                     type ValueType = Test;
+                    type AstType = z3::ast::Datatype<'ctx>;
 
                     fn eval(
                         &'s self,
@@ -516,6 +522,10 @@ mod tests {
                         other: &'s Self,
                     ) -> constraint_rs::impls::BoolConstrainedValue {
                         z3::ast::Ast::_eq(&self.val, &other.val).into()
+                    }
+
+                    fn z3(&'s self) -> &'s Self::AstType {
+                        &self.val
                     }
                 }
             ),
