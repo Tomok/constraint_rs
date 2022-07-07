@@ -99,4 +99,13 @@ impl<'ctx> BoolConstrainedValue<'ctx> {
     pub fn val(&self) -> &z3::ast::Bool<'ctx> {
         &self.val
     }
+
+    //todo: ite
+
+    expose_fn_ref_self!(xor(other: &Self) -> Self);
+
+    expose_fn_ref_self!(not() -> Self);
+
+    expose_fn_ref_self!(iff(other: &Self) -> Self);
+    expose_fn_ref_self!(implies(other: &Self) -> Self);
 }

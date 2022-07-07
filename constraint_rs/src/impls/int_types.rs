@@ -94,12 +94,38 @@ macro_rules! int_impl {
             }
         }
 
+        //TODO: is this realy a good idea? as BV might have a different bitcount
+        impl<'ctx> From<ast::BV<'ctx>> for $ConstrainedValue<'ctx> {
+            fn from(val: ast::BV<'ctx>) -> Self {
+                Self { val }
+            }
+        }
+
+
         impl<'ctx> $ConstrainedValue<'ctx> {
             //todo: temporary for tests ... to be replaced when other functions for defining
             //constraints were added
             pub fn val(&self) -> &z3::ast::BV<'ctx> {
                 &self.val
             }
+
+            expose_fn_ref_self!(bvnot - not()-> Self);
+            expose_fn_ref_self!(bvand - and(other: &Self)-> Self);
+            expose_fn_ref_self!(bvor - or(other: &Self)-> Self);
+            expose_fn_ref_self!(bvxor - xor(other: &Self)-> Self);
+            expose_fn_ref_self!(bvnand - nand(other: &Self)-> Self);
+            expose_fn_ref_self!(bvnor - nor(other: &Self)-> Self);
+            expose_fn_ref_self!(bvxnor - xnor(other: &Self)-> Self);
+            expose_fn_ref_self!(bvadd - add(other: &Self)-> Self);
+            expose_fn_ref_self!(bvsub - sub(other: &Self)-> Self);
+            expose_fn_ref_self!(bvmul - mul(other: &Self)-> Self);
+
+            expose_x_signed_fns!($signed);
+
+            expose_fn_ref_self!(bvrotl - rotl(other: &Self)-> Self);
+            expose_fn_ref_self!(bvrotr - rotr(other: &Self)-> Self);
+
+            //todo: undeflow
         }
     };
 }
@@ -129,6 +155,28 @@ macro_rules! from_x64 {
     };
     (signed, $context:expr, $val:expr, $bits:literal) => {
         z3::ast::BV::from_i64($context, $val.into(), $bits)
+    };
+}
+
+macro_rules! expose_x_signed_fns {
+    (signed) => {
+        expose_fn_ref_self!(bvneg - neg()-> Self);
+        expose_fn_ref_self!(bvsdiv - div(other: &Self)-> Self);
+        expose_fn_ref_self!(bvsrem - rem(other: &Self)-> Self);
+        expose_fn_ref_self!(bvslt - lt(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvsle - le(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvsge  - ge(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvsgt  - gt(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvashr - shr(other: &Self)-> Self);
+    };
+    (unsigned) => {
+        expose_fn_ref_self!(bvudiv - div(other: &Self)-> Self);
+        expose_fn_ref_self!(bvurem - rem(other: &Self)-> Self);
+        expose_fn_ref_self!(bvult - lt(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvule - le(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvuge - ge(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvugt - gt(other: &Self)-> BoolConstrainedValue);
+        expose_fn_ref_self!(bvlshr - shr(other: &Self)-> Self);
     };
 }
 
