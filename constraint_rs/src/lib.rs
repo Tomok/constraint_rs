@@ -339,8 +339,10 @@ mod tests {
                 let f = u64::constrained_type(self.context).value_from_z3_dynamic(
                     self.data_type.0.variants[0].accessors[0].apply(&[&val]),
                 )?;
+
                 Some(Self::ValueType {
                     val: val.as_datatype()?,
+                    typ: self,
                     f,
                 })
             }
@@ -383,6 +385,7 @@ mod tests {
                 's,
                 'ctx,
             >>::ValueType, //U64ConstrainedValue<'ctx>,
+            typ: &'s SConstrainedType<'s, 'ctx>,
         }
 
         impl<'s, 'ctx> ConstrainedValue<'s, 'ctx> for SConstrainedValue<'s, 'ctx>
