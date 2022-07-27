@@ -46,7 +46,7 @@ fn derive_struct(
 
     let constrained_type_new_fn = constrained_type_new_fn(&str_ident, &fields);
     let constrained_value_eval_fn = constrained_value_eval_fn(struct_type, ident, &fields);
-    let constrained_value_fields = constrained_value_fields(&fields);
+    let constrained_value_fields = constrained_value_fields(&fields, constrained_struct_ident);
     let constrained_value_assign_value_fn = constrained_value_assign_value_fn(&fields);
     let constrained_type_value_from_z3_dynamic = constrained_type_value_from_z3_dynamic(&fields);
 
@@ -251,11 +251,18 @@ fn constrained_type_new_fn(str_ident: &str, fields: &[ParsedField]) -> syn::Impl
     )
 }
 
-fn constrained_value_fields(fields: &[ParsedField]) -> syn::FieldsNamed {
+fn constrained_value_fields(
+    fields: &[ParsedField],
+    constrained_struct_ident: &syn::Ident,
+) -> syn::FieldsNamed {
     let field_entries = fields.iter().map(|f| {
         if f.ident == "val" {
             //todo: maybe use different field name instead of failing...
             panic!("Dervied structs may not contain a field val, needed for internal purposes");
+        }
+        if f.ident == "typ" {
+            //todo: maybe use different field name instead of failing...
+            panic!("Dervied structs may not contain a field typ, needed for internal purposes");
         }
         let i = syn::Ident::new(&f.ident, Span::call_site());
         let d = &f.data_type;
@@ -294,6 +301,13 @@ fn constrained_value_fields(fields: &[ParsedField]) -> syn::FieldsNamed {
         ident: Some(syn::Ident::new("val", Span::call_site())),
         colon_token: Some(Token![:](Span::call_site())),
         ty: syn::parse_quote!(z3::ast::Datatype<'ctx>),
+    });
+    named_fields.push(syn::Field {
+        attrs: vec![],
+        vis: syn::Visibility::Inherited,
+        ident: Some(syn::Ident::new("typ", Span::call_site())),
+        colon_token: Some(Token![:](Span::call_site())),
+        ty: syn::parse_quote!(&'s #constrained_struct_ident<'s, 'ctx>),
     });
     if fields.is_empty() {
         //create dummy field, to ensure lifetime 's is used
@@ -346,6 +360,7 @@ fn constrained_type_value_from_z3_dynamic(fields: &[ParsedField]) -> syn::ImplIt
                 let dummy = std::marker::PhantomData;
                 Some(Self::ValueType {
                     val: val.as_datatype()?,
+                    typ: self,
                     dummy,
                 })
             }
@@ -377,6 +392,7 @@ fn constrained_type_value_from_z3_dynamic(fields: &[ParsedField]) -> syn::ImplIt
                 #(#field_assingments;)*
                 Some(Self::ValueType {
                     val: val.as_datatype()?,
+                    typ: self,
                     #(#class_fields),*
                 })
             }
@@ -472,6 +488,7 @@ mod tests {
                         let dummy = std::marker::PhantomData;
                         Some(Self::ValueType {
                             val: val.as_datatype()?,
+                            typ: self,
                             dummy,
                         })
                     }
@@ -492,6 +509,7 @@ mod tests {
             syn::parse_quote!(
                 pub struct TestConstrainedValue<'s, 'ctx> {
                     val: z3::ast::Datatype<'ctx>,
+                    typ: &'s TestConstrainedType<'s, 'ctx>,
                     dummy: std::marker::PhantomData<&'s ()>,
                 }
             ),
@@ -620,9 +638,13 @@ mod tests {
     fn test_constrained_value_fields() {
         let expected = "{
             val: z3::ast::Datatype<'ctx>,
+            typ: &'s SConstrainedDatatype<'s, 'ctx>,
             pub my_u32_field: << u32 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType
         }";
-        let generated = constrained_value_fields(&one_field());
+        let generated = constrained_value_fields(
+            &one_field(),
+            &syn::Ident::new("SConstrainedDatatype", Span::call_site()),
+        );
         let generated_str = format!("{}", generated.to_token_stream());
         assert_eq!(
             harmonize_syn_str(expected),
@@ -639,6 +661,7 @@ mod tests {
                     self.data_type.z3_datatype_sort().variants [0].accessors [0usize].apply(& [& val]))?;
                 Some(Self::ValueType {
                     val: val.as_datatype()?,
+                    typ: self,
                     my_u32_field
                 })
             }
