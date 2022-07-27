@@ -298,9 +298,17 @@ mod tests {
             f: u64,
         }
 
+        impl S {
+            /// example for a function to be derived
+            pub fn func1(&self) -> u64 {
+                self.f
+            }
+        }
+
         pub struct SConstrainedType<'s, 'ctx> {
             context: &'s Context<'ctx>,
             data_type: DataType<'ctx>,
+            func1: z3::RecFuncDecl<'ctx>,
         }
 
         impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for SConstrainedType<'s, 'ctx>
@@ -319,7 +327,27 @@ mod tests {
                         .variant("", fields)
                         .finish()
                 });
-                Self { context, data_type }
+                let func1 = z3::RecFuncDecl::new(
+                    context.z3_context(),
+                    "S.func1",
+                    &[&data_type.z3_datatype_sort().sort],
+                    u64::constrained_type(context).z3_sort(),
+                );
+                {
+                    let self_const: z3::ast::Dynamic<'ctx> = z3::ast::Datatype::fresh_const(
+                        context.z3_context(),
+                        "S1.func1#self",
+                        &data_type.z3_datatype_sort().sort,
+                    )
+                    .into();
+                    let ast = data_type.0.variants[0].accessors[0].apply(&[&self_const]);
+                    func1.add_def(&[&self_const], &ast);
+                }
+                Self {
+                    context,
+                    data_type,
+                    func1,
+                }
             }
 
             fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
@@ -428,6 +456,36 @@ mod tests {
                     .unwrap()
                     ._safe_eq(&z3::ast::BV::from_u64(&ctx, 42, 64))
                     .unwrap(),
+            );
+            assert_eq!(z3::SatResult::Sat, solver.check());
+            let model = solver.get_model().unwrap();
+            assert_eq!(Some(S { f: 42 }), val1.eval(&model));
+        }
+
+        impl<'s, 'ctx> SConstrainedValue<'s, 'ctx> {
+            pub fn func1(
+                &self,
+            ) -> <<u64 as HasConstrainedType>::ConstrainedType as ConstrainedType>::ValueType
+            {
+                let applied_fn = self.typ.func1.apply(&[&self.val.clone().into()]);
+                <u64 as HasConstrainedType>::constrained_type(self.typ.context)
+                    .value_from_z3_dynamic(applied_fn)
+                    .unwrap()
+            }
+        }
+
+        #[test]
+        fn func1() {
+            let config = z3::Config::new();
+            let ctx = z3::Context::new(&config);
+            let context = Context::new(&ctx);
+            let typ = S::constrained_type(&context);
+            let val1 = typ.fresh_value("val1");
+            let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
+            solver.assert(
+                val1.func1()
+                    ._eq(&42u64.constrained(context.z3_context()))
+                    .z3(),
             );
             assert_eq!(z3::SatResult::Sat, solver.check());
             let model = solver.get_model().unwrap();
