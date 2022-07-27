@@ -48,6 +48,7 @@ where
     'ctx: 's,
 {
     type ValueType: HasConstrainedType<'s, 'ctx>;
+    type AstType: z3::ast::Ast<'ctx>;
 
     ///get a possible set of values from the given Model
     fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType>;
@@ -61,6 +62,8 @@ where
      * Constrain this object to match the given value
      **/
     fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType);
+
+    fn z3(&'s self) -> &'s Self::AstType;
 }
 
 pub type Model<'ctx> = z3::Model<'ctx>;
@@ -240,6 +243,7 @@ mod tests {
             'ctx: 's,
         {
             type ValueType = Empty;
+            type AstType = z3::ast::Datatype<'ctx>;
 
             fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType> {
                 // as the type is empty, it is always the following, as long as the model exists
@@ -252,6 +256,10 @@ mod tests {
 
             fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
                 //nothing to do here
+            }
+
+            fn z3(&'s self) -> &Self::AstType {
+                &self.val
             }
         }
 
@@ -382,6 +390,7 @@ mod tests {
             'ctx: 's,
         {
             type ValueType = S;
+            type AstType = z3::ast::Datatype<'ctx>;
 
             fn eval(&'s self, model: &Model<'ctx>) -> Option<Self::ValueType> {
                 let f = self.f.eval(model)?;
@@ -394,6 +403,10 @@ mod tests {
 
             fn assign_value(&'s self, solver: &Solver<'ctx>, value: &Self::ValueType) {
                 self.f.assign_value(solver, &value.f);
+            }
+
+            fn z3(&'s self) -> &Self::AstType {
+                &self.val
             }
         }
 
