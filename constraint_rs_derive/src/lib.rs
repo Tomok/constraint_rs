@@ -2,101 +2,162 @@ extern crate proc_macro;
 
 use proc_macro2::Span;
 use quote::ToTokens;
-use syn::{DeriveInput, Token};
+use syn::Token;
 
 #[proc_macro_derive(ConstrainedType)]
 pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let input = syn::parse(input).unwrap();
-    let derived = _derive_constraint_type(input);
-    let derived_tokens: Vec<_> = derived.into_iter().map(|x| x.into_token_stream()).collect();
+    let input: syn::DeriveInput = syn::parse(input).unwrap();
+    let parsed = ParsedDeriveInput::from(input);
+    let derived_tokens: Vec<_> = parsed
+        .to_syn_items()
+        .into_iter()
+        .map(|x| x.into_token_stream())
+        .collect();
     let mut res = proc_macro2::TokenStream::new();
     res.extend(derived_tokens);
     res.into()
 }
 
-fn _derive_constraint_type(input: DeriveInput) -> [syn::Item; 5] {
-    let ident = &input.ident;
-    let constrained_struct_ident =
-        syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site());
+fn constrained_struct_ident(ident: &syn::Ident) -> syn::Ident {
+    syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site())
+}
 
-    let constrained_value_ident =
-        syn::Ident::new(&format!("{}ConstrainedValue", ident), Span::call_site());
+fn constrained_value_ident(ident: &syn::Ident) -> syn::Ident {
+    syn::Ident::new(&format!("{}ConstrainedValue", ident), Span::call_site())
+}
 
-    match input.data {
-        syn::Data::Struct(data_struct) => derive_struct(
-            &data_struct,
-            ident,
-            &constrained_struct_ident,
-            &constrained_value_ident,
-        ),
-        syn::Data::Enum(_) => todo!(),
-        syn::Data::Union(_) => todo!(),
+enum ParsedDeriveInput {
+    Struct(ParsedStruct),
+    Enum(),  //todo
+    Union(), //todo
+}
+
+impl ParsedDeriveInput {
+    pub fn to_syn_items(&self) -> [syn::Item; 5] {
+        match self {
+            ParsedDeriveInput::Struct(s) => s.to_syn_items(),
+            ParsedDeriveInput::Enum() => todo!(),
+            ParsedDeriveInput::Union() => todo!(),
+        }
     }
 }
 
-fn derive_struct(
-    data_struct: &syn::DataStruct,
-    ident: &syn::Ident,
-    constrained_struct_ident: &syn::Ident,
-    constrained_value_ident: &syn::Ident,
-) -> [syn::Item; 5] {
-    let str_ident = format!("{}", ident);
-    let fields = ParsedField::parse_fields(&data_struct.fields);
-    let struct_type = StructType::from(&data_struct.fields);
-
-    let constrained_type_new_fn = constrained_type_new_fn(&str_ident, &fields);
-    let constrained_value_eval_fn = constrained_value_eval_fn(struct_type, ident, &fields);
-    let constrained_value_fields = constrained_value_fields(&fields, constrained_struct_ident);
-    let constrained_value_assign_value_fn = constrained_value_assign_value_fn(&fields);
-    let constrained_type_value_from_z3_dynamic = constrained_type_value_from_z3_dynamic(&fields);
-
-    let constraint_struct: syn::ItemStruct = syn::parse_quote!(
-        pub struct #constrained_struct_ident<'s, 'ctx> {
-            context: &'s constraint_rs::Context<'ctx>,
-            data_type: constraint_rs::DataType<'ctx>,
-        }
-    );
-    let constraint_struct_impl: syn::ItemImpl = syn::parse_quote!(
-        impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for #constrained_struct_ident<'s, 'ctx>
-        where
-            'ctx: 's,
-        {
-            type ValueType = #constrained_value_ident<'s, 'ctx>;
-
-            #constrained_type_new_fn
-
-            fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
-                let val = z3::ast::Datatype::fresh_const(
-                    self.context.z3_context(),
-                    name_prefix,
-                    &self.data_type.z3_datatype_sort().sort,
-                );
-                self.value_from_z3_dynamic(z3::ast::Dynamic::from_ast(&val))
-                    .unwrap()
+impl From<syn::DeriveInput> for ParsedDeriveInput {
+    fn from(input: syn::DeriveInput) -> Self {
+        let ident = &input.ident;
+        match input.data {
+            syn::Data::Struct(data_struct) => {
+                Self::Struct(ParsedStruct::from_data_struct(ident, &data_struct))
             }
+            syn::Data::Enum(_) => todo!(),
+            syn::Data::Union(_) => todo!(),
+        }
+    }
+}
 
-            #constrained_type_value_from_z3_dynamic
+struct ParsedStruct {
+    pub typ: StructType,
+    pub ident: syn::Ident,
+    pub fields: Vec<ParsedField>,
+    pub str_ident: String, //not realy necessary as field, but calculated on construction for reusablilty,
+    pub constrained_struct_ident: syn::Ident, //not realy necessary as field, but calculated on construction for reusablilty
+    pub constrained_value_ident: syn::Ident, //not realy necessary as field, but calculated on construction for reusablilty,
+}
 
-            fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
-                &self.data_type.z3_datatype_sort().sort
+impl ParsedStruct {
+    fn from_data_struct(ident: &syn::Ident, data_struct: &syn::DataStruct) -> Self {
+        let constrained_struct_ident = constrained_struct_ident(ident);
+        let constrained_value_ident = constrained_value_ident(ident);
+        let fields = ParsedField::parse_fields(&data_struct.fields);
+        let ident = ident.clone();
+        let str_ident = ident.to_string();
+        let typ = StructType::from(&data_struct.fields);
+        Self {
+            typ,
+            fields,
+            ident,
+            str_ident,
+            constrained_value_ident,
+            constrained_struct_ident,
+        }
+    }
+
+    pub fn constrained_struct(&self) -> syn::ItemStruct {
+        let constrained_struct_ident = &self.constrained_struct_ident;
+        syn::parse_quote!(
+            pub struct #constrained_struct_ident<'s, 'ctx> {
+                context: &'s constraint_rs::Context<'ctx>,
+                data_type: constraint_rs::DataType<'ctx>,
             }
-        }
-    );
-    let struct_impl: syn::ItemImpl = syn::parse_quote!(
-        impl<'s, 'ctx> constraint_rs::HasConstrainedType<'s, 'ctx> for #ident
-        where
-            'ctx: 's,
-        {
-            type ConstrainedType = #constrained_struct_ident<'s, 'ctx>;
-        }
-    );
+        )
+    }
 
-    let value_def: syn::ItemStruct = syn::parse_quote!(
-        pub struct #constrained_value_ident<'s, 'ctx>
-            #constrained_value_fields
-    );
+    pub fn constrained_struct_impl(&self) -> syn::ItemImpl {
+        let constrained_struct_ident = &self.constrained_struct_ident;
+        let constrained_value_ident = &self.constrained_value_ident;
+        let constrained_type_new_fn = constrained_type_new_fn(&self.str_ident, &self.fields);
+        let constrained_type_value_from_z3_dynamic =
+            constrained_type_value_from_z3_dynamic(&self.fields);
+        syn::parse_quote!(
+            impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for #constrained_struct_ident<'s, 'ctx>
+            where
+                'ctx: 's,
+            {
+                type ValueType = #constrained_value_ident<'s, 'ctx>;
 
-    let value_impl: syn::ItemImpl = syn::parse_quote!(
+                #constrained_type_new_fn
+
+                fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
+                    let val = z3::ast::Datatype::fresh_const(
+                        self.context.z3_context(),
+                        name_prefix,
+                        &self.data_type.z3_datatype_sort().sort,
+                    );
+                    self.value_from_z3_dynamic(z3::ast::Dynamic::from_ast(&val))
+                        .unwrap()
+                }
+
+                #constrained_type_value_from_z3_dynamic
+
+                fn z3_sort(&'s self) -> &'s z3::Sort<'ctx> {
+                    &self.data_type.z3_datatype_sort().sort
+                }
+            }
+        )
+    }
+
+    pub fn struct_impl(&self) -> syn::ItemImpl {
+        let ident = &self.ident;
+        let constrained_struct_ident = &self.constrained_struct_ident;
+        syn::parse_quote!(
+            impl<'s, 'ctx> constraint_rs::HasConstrainedType<'s, 'ctx> for #ident
+            where
+                'ctx: 's,
+            {
+                type ConstrainedType = #constrained_struct_ident<'s, 'ctx>;
+            }
+        )
+    }
+
+    pub fn value_def(&self) -> syn::ItemStruct {
+        let constrained_value_ident = &self.constrained_value_ident;
+
+        let constrained_value_fields =
+            constrained_value_fields(&self.fields, &self.constrained_struct_ident);
+
+        syn::parse_quote!(
+            pub struct #constrained_value_ident<'s, 'ctx>
+                #constrained_value_fields
+        )
+    }
+
+    pub fn value_impl(&self) -> syn::ItemImpl {
+        let ident = &self.ident;
+        let constrained_value_ident = &self.constrained_value_ident;
+
+        let constrained_value_eval_fn = constrained_value_eval_fn(self.typ, ident, &self.fields);
+        let constrained_value_assign_value_fn = constrained_value_assign_value_fn(&self.fields);
+        syn::parse_quote!(
             impl<'s, 'ctx> constraint_rs::ConstrainedValue<'s, 'ctx> for #constrained_value_ident<'s, 'ctx>
             where
                 'ctx: 's,
@@ -118,16 +179,19 @@ fn derive_struct(
                 fn z3(&'s self) -> &'s Self::AstType {
                     &self.val
                 }
-        }
-    );
+            }
+        )
+    }
 
-    [
-        constraint_struct.into(),
-        constraint_struct_impl.into(),
-        struct_impl.into(),
-        value_def.into(),
-        value_impl.into(),
-    ]
+    pub fn to_syn_items(&self) -> [syn::Item; 5] {
+        [
+            self.constrained_struct().into(),
+            self.constrained_struct_impl().into(),
+            self.struct_impl().into(),
+            self.value_def().into(),
+            self.value_impl().into(),
+        ]
+    }
 }
 
 struct ParsedField {
@@ -440,7 +504,7 @@ mod tests {
 
     #[test]
     fn derive_empty_struct() {
-        let input = syn::parse_quote!(
+        let input: syn::DeriveInput = syn::parse_quote!(
             #[derive(Debug, ConstrainedType)]
             struct Test;
         );
@@ -548,7 +612,8 @@ mod tests {
                 }
             ),
         ];
-        let res = _derive_constraint_type(input);
+        let intermediate = ParsedDeriveInput::from(input);
+        let res = intermediate.to_syn_items();
         assert_eq!(expected.len(), res.len());
         for (e, r) in expected.into_iter().zip(res) {
             if e != r {
