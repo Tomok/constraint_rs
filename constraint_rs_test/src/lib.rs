@@ -2,12 +2,16 @@
 mod tests {
 
     mod empty_struct {
-        use constraint_rs_derive::ConstrainedType;
+        use constraint_rs_derive::constrained_mod;
 
         use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
 
-        #[derive(ConstrainedType, PartialEq, Eq, Debug)]
-        pub struct TestStruct;
+        #[constrained_mod]
+        mod test_struct {
+            #[derive(PartialEq, Eq, Debug)]
+            pub struct TestStruct;
+        }
+        use test_struct::*;
 
         #[test]
         fn test() {

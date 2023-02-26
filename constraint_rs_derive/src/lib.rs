@@ -4,6 +4,42 @@ use proc_macro2::Span;
 use quote::ToTokens;
 use syn::Token;
 
+#[proc_macro_attribute]
+pub fn constrained_mod(
+    attr: proc_macro::TokenStream,
+    item: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    println!("attr: \"{}\"", attr);
+    let mut module: syn::ItemMod = syn::parse(item).unwrap();
+    let mut to_append: Vec<ParsedDeriveInput> = Vec::new();
+    if let Some((_, ref mut items)) = module.content {
+        for item in items.iter() {
+            match item {
+                syn::Item::Enum(_) => todo!(),
+                syn::Item::Fn(_) => todo!(),
+                syn::Item::Impl(_) => todo!(),
+                syn::Item::Struct(s) => {
+                    let parsed = ParsedStruct::from_item_struct(s);
+                    to_append.push(parsed.into());
+                }
+                syn::Item::Trait(_) => todo!(),
+                syn::Item::TraitAlias(_) => todo!(),
+                syn::Item::Type(_) => todo!(),
+                syn::Item::Union(_) => todo!(),
+                _ => todo!(),
+            }
+        }
+        for p in to_append {
+            items.extend(p.to_syn_items());
+        }
+    } else {
+        panic!("Module contents need to be in the same file, otherwise they cannot be parsed")
+    }
+    module.into_token_stream().into()
+    //let bar: syn::ImplItemMethod = syn::parse_quote!("fn bar() -> bool {false}");
+    //bar.into_token_stream().into()
+}
+
 #[proc_macro_derive(ConstrainedType)]
 pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: syn::DeriveInput = syn::parse(input).unwrap();
@@ -55,6 +91,12 @@ impl From<syn::DeriveInput> for ParsedDeriveInput {
     }
 }
 
+impl From<ParsedStruct> for ParsedDeriveInput {
+    fn from(value: ParsedStruct) -> Self {
+        Self::Struct(value)
+    }
+}
+
 struct ParsedStruct {
     pub typ: StructType,
     pub ident: syn::Ident,
@@ -83,6 +125,14 @@ impl ParsedStruct {
         let fields = ParsedField::parse_fields(&data_struct.fields);
         let ident = ident.clone();
         let typ = StructType::from(&data_struct.fields);
+        Self::new(typ, ident, fields)
+    }
+
+    fn from_item_struct(i: &syn::ItemStruct) -> Self {
+        let fields = ParsedField::parse_fields(&i.fields);
+        let ident = i.ident.clone();
+        let typ = StructType::from(&i.fields);
+        //todo: handle other fields in ItemStruct ?
         Self::new(typ, ident, fields)
     }
 
