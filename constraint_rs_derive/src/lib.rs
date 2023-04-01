@@ -1,5 +1,7 @@
 extern crate proc_macro;
 
+use std::marker::PhantomData;
+
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::Token;
@@ -11,16 +13,20 @@ pub fn constrained_mod(
 ) -> proc_macro::TokenStream {
     println!("attr: \"{}\"", attr);
     let mut module: syn::ItemMod = syn::parse(item).unwrap();
-    let mut to_append: Vec<ParsedDeriveInput> = Vec::new();
+    let mut parsed_structs = Vec::new();
+    let mut parsed_impls = Vec::new();
     if let Some((_, ref mut items)) = module.content {
         for item in items.iter() {
             match item {
                 syn::Item::Enum(_) => todo!(),
                 syn::Item::Fn(_) => todo!(),
-                syn::Item::Impl(_) => todo!(),
+                syn::Item::Impl(i) => {
+                    let parsed = ParsedImpl::try_from(i).unwrap();
+                    parsed_impls.push(parsed);
+                }
                 syn::Item::Struct(s) => {
                     let parsed = ParsedStruct::from_item_struct(s);
-                    to_append.push(parsed.into());
+                    parsed_structs.push(parsed);
                 }
                 syn::Item::Trait(_) => todo!(),
                 syn::Item::TraitAlias(_) => todo!(),
@@ -29,7 +35,7 @@ pub fn constrained_mod(
                 _ => todo!(),
             }
         }
-        for p in to_append {
+        for p in parsed_structs {
             items.extend(p.to_syn_items());
         }
     } else {
@@ -500,6 +506,154 @@ impl ParsedField {
             syn::Type::Verbatim(_) => todo!(),
             _ => todo!(),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct ParsedImpl<'s> {
+    struct_ident: &'s syn::Ident,
+    methods: Vec<ParsedMethod<'s>>,
+}
+
+impl<'s> TryFrom<&'s syn::ItemImpl> for ParsedImpl<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::ItemImpl) -> Result<Self, Self::Error> {
+        let struct_ident = match &*(value.self_ty) {
+            syn::Type::Path(ident_path) => {
+                if ident_path.path.segments.len() != 1 {
+                    // no derive for Path implementations implemented yet
+                    todo!()
+                } else {
+                    &ident_path.path.segments.first().unwrap().ident
+                }
+            }
+            _ => todo!(),
+        };
+
+        let mut methods = Vec::with_capacity(value.items.len());
+        for item in &value.items {
+            match item {
+                syn::ImplItem::Const(_) => todo!(),
+                syn::ImplItem::Method(m) => {
+                    if let Ok(parsed) = ParsedMethod::try_from(m) {
+                        methods.push(parsed)
+                    } else {
+                        todo!()
+                    }
+                }
+                syn::ImplItem::Type(_) => todo!(),
+                syn::ImplItem::Macro(_) => todo!(),
+                syn::ImplItem::Verbatim(_) => todo!(),
+                _ => todo!(),
+            }
+        }
+        Ok(Self {
+            struct_ident,
+            methods,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct ParsedMethod<'s> {
+    signature: ParsedSignature<'s>,
+    inputs: ParsedInputs<'s>,
+    output: ParsedReturnType<'s>,
+}
+
+impl<'s> TryFrom<&'s syn::ImplItemMethod> for ParsedMethod<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::ImplItemMethod) -> Result<Self, Self::Error> {
+        todo!()
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct ParsedSignature<'s> {
+    ident: &'s syn::Ident,
+    inputs: ParsedInputs<'s>,
+    output: ParsedReturnType<'s>,
+}
+
+impl<'s> TryFrom<&'s syn::Signature> for ParsedSignature<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::Signature) -> Result<Self, Self::Error> {
+        //todo evaluate other fields
+        Ok(Self {
+            ident: &value.ident,
+            inputs: (&value.inputs).try_into()?,
+            output: (&value.output).try_into()?,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct ParsedInputs<'s> {
+    args: Vec<ParsedFnArg<'s>>,
+}
+
+impl<'s> TryFrom<&'s syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>
+    for ParsedInputs<'s>
+{
+    type Error = ();
+
+    fn try_from(
+        value: &'s syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
+    ) -> Result<Self, Self::Error> {
+        let mut args = Vec::with_capacity(value.len());
+        for arg in value.iter() {
+            args.push(arg.try_into()?);
+        }
+        Ok(Self { args })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum ParsedReturnType<'s> {
+    Default,
+    Type(&'s syn::Type),
+}
+
+impl<'s> TryFrom<&'s syn::ReturnType> for ParsedReturnType<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::ReturnType) -> Result<Self, Self::Error> {
+        Ok(match value {
+            syn::ReturnType::Default => Self::Default,
+            syn::ReturnType::Type(_, t) => Self::Type(t.as_ref()),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+enum ParsedFnArg<'s> {
+    Receiver(ParsedReceiver<'s>),
+    //todo: Typed(ParsedPatType<'s>),
+}
+
+impl<'s> TryFrom<&'s syn::FnArg> for ParsedFnArg<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::FnArg) -> Result<Self, Self::Error> {
+        Ok(match value {
+            syn::FnArg::Receiver(r) => Self::Receiver(r.try_into()?),
+            syn::FnArg::Typed(_) => todo!(),
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+struct ParsedReceiver<'s>(PhantomData<&'s ()>);
+
+impl<'s> TryFrom<&'s syn::Receiver> for ParsedReceiver<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::Receiver) -> Result<Self, Self::Error> {
+        //todo ... do any of the fields matter?
+        Ok(Self(PhantomData::default()))
     }
 }
 
