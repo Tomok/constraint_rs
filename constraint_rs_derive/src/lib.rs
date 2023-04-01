@@ -846,7 +846,7 @@ mod tests {
     }
 
     fn harmonize_syn_str(i: &str) -> String {
-        let mut result = i.trim().replace('\n', " ").replace('\t', " ");
+        let mut result = i.trim().replace(['\n', '\t'], " ");
         while result.contains("  ") {
             result = result.replace("  ", " ");
         }
