@@ -631,7 +631,7 @@ impl<'s> TryFrom<&'s syn::ReturnType> for ParsedReturnType<'s> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum ParsedFnArg<'s> {
     Receiver(ParsedReceiver<'s>),
-    //todo: Typed(ParsedPatType<'s>),
+    Typed(ParsedPatType<'s>),
 }
 
 impl<'s> TryFrom<&'s syn::FnArg> for ParsedFnArg<'s> {
@@ -654,6 +654,20 @@ impl<'s> TryFrom<&'s syn::Receiver> for ParsedReceiver<'s> {
     fn try_from(value: &'s syn::Receiver) -> Result<Self, Self::Error> {
         //todo ... do any of the fields matter?
         Ok(Self(PhantomData::default()))
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+struct ParsedPatType<'s> {
+    p: PhantomData<&'s ()>, //todo
+}
+
+impl<'s> TryFrom<&'s syn::PatType> for ParsedPatType<'s> {
+    type Error = ();
+
+    fn try_from(value: &'s syn::PatType) -> Result<Self, Self::Error> {
+        dbg!(value);
+        todo!()
     }
 }
 
@@ -959,5 +973,15 @@ mod tests {
             harmonize_syn_str(expected),
             harmonize_syn_str(&generated_str)
         );
+    }
+
+    #[test]
+    fn test_parse_pat_type() {
+        let input_fn: syn::ImplItemFn = syn::parse_quote! {
+            fn func(foo: u64) {}
+        };
+
+        let pat_type: syn::PatType = syn::parse_quote! {foo: u64};
+        let parsed = ParsedPatType::try_from(pat_type).unwrap();
     }
 }
