@@ -668,7 +668,7 @@ impl<'s> TryFrom<&'s syn::FnArg> for ParsedFnArg<'s> {
     fn try_from(value: &'s syn::FnArg) -> Result<Self, Self::Error> {
         Ok(match value {
             syn::FnArg::Receiver(r) => Self::Receiver(r.try_into()?),
-            syn::FnArg::Typed(_) => todo!(),
+            syn::FnArg::Typed(t) => Self::Typed(t.try_into()?),
         })
     }
 }
