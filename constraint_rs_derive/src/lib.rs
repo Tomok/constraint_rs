@@ -195,7 +195,7 @@ impl ParsedStruct {
         ]
     }
 
-    fn constrained_value_eval_fn(&self) -> syn::ImplItemMethod {
+    fn constrained_value_eval_fn(&self) -> syn::ImplItemFn {
         let field_assingments = self.fields.iter().map(|f| {
             let i = syn::Ident::new(&f.ident, Span::call_site());
             let eval_call: syn::ExprMethodCall = syn::parse_quote!(self.#i.eval(model));
@@ -215,7 +215,7 @@ impl ParsedStruct {
         )
     }
 
-    fn constrained_type_value_from_z3_dynamic(&self) -> syn::ImplItemMethod {
+    fn constrained_type_value_from_z3_dynamic(&self) -> syn::ImplItemFn {
         /*  fill fields here, e.g.:
         let f = u64::constrained_type(self.context).value_from_z3_dynamic(
             self.data_type.z3_datatype_sort().variants[0].accessors[0].apply(&[&val]),
@@ -297,9 +297,8 @@ impl ParsedStruct {
 
             syn::Field {
                 attrs: vec![],
-                vis: syn::Visibility::Public(syn::VisPublic {
-                    pub_token: Token![pub](Span::call_site()),
-                }),
+                vis: syn::Visibility::Public(Token![pub](Span::call_site())),
+                mutability: syn::FieldMutability::None,
                 ident: Some(i),
                 colon_token: Some(Token![:](Span::call_site())),
                 ty: syn::Type::Path(ty),
@@ -311,10 +310,11 @@ impl ParsedStruct {
         //});
         //dbg!(format!("{}", t2.to_token_stream()));
         //todo!()
-        let mut named_fields = syn::punctuated::Punctuated::new();
+        let mut named_fields: syn::punctuated::Punctuated<syn::Field, syn::token::Comma> = syn::punctuated::Punctuated::new();
         named_fields.push(syn::Field {
             attrs: vec![],
             vis: syn::Visibility::Inherited,
+            mutability: syn::FieldMutability::None,
             ident: Some(syn::Ident::new("val", Span::call_site())),
             colon_token: Some(Token![:](Span::call_site())),
             ty: syn::parse_quote!(z3::ast::Datatype<'ctx>),
@@ -322,6 +322,7 @@ impl ParsedStruct {
         named_fields.push(syn::Field {
             attrs: vec![],
             vis: syn::Visibility::Inherited,
+            mutability: syn::FieldMutability::None,
             ident: Some(syn::Ident::new("typ", Span::call_site())),
             colon_token: Some(Token![:](Span::call_site())),
             ty: syn::parse_quote!(&'s #constrained_struct_ident<'s, 'ctx>),
@@ -331,6 +332,7 @@ impl ParsedStruct {
             let dummy = syn::Field {
                 attrs: vec![],
                 vis: syn::Visibility::Inherited,
+                mutability: syn::FieldMutability::None,
                 ident: Some(syn::Ident::new("dummy", Span::call_site())),
                 colon_token: Some(Token![:](Span::call_site())),
                 ty: syn::parse_quote!(std::marker::PhantomData<&'s ()>),
@@ -339,15 +341,10 @@ impl ParsedStruct {
         } else {
             named_fields.extend(field_entries);
         }
-        syn::FieldsNamed {
-            brace_token: syn::token::Brace {
-                span: Span::call_site(),
-            },
-            named: named_fields,
-        }
+        syn::parse_quote!({#named_fields})
     }
 
-    fn constrained_value_assign_value_fn(&self) -> syn::ImplItemMethod {
+    fn constrained_value_assign_value_fn(&self) -> syn::ImplItemFn {
         let field_assingments = self.fields.iter().map(|f| {
             let i = syn::Ident::new(&f.ident, Span::call_site());
             let eval_call: syn::ExprMethodCall =
@@ -363,7 +360,7 @@ impl ParsedStruct {
         )
     }
 
-    fn constrained_type_new_fn(&self) -> syn::ImplItemMethod {
+    fn constrained_type_new_fn(&self) -> syn::ImplItemFn {
         // let fields = vec![(
         //    "f",
         //    z3::DatatypeAccessor::Sort(u64::constrained_type(context).z3_sort().clone()),
