@@ -541,19 +541,27 @@ struct ParsedImpl<'s> {
 }
 
 impl<'s> TryFrom<&'s syn::ItemImpl> for ParsedImpl<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::ItemImpl) -> Result<Self, Self::Error> {
         let struct_ident = match &*(value.self_ty) {
             syn::Type::Path(ident_path) => {
                 if ident_path.path.segments.len() != 1 {
                     // no derive for Path implementations implemented yet
-                    todo!()
+                    return Err(DeriveConstraintError::not_supported(
+                        "Item implementation for Path",
+                        ident_path,
+                    ));
                 } else {
                     &ident_path.path.segments.first().unwrap().ident
                 }
             }
-            _ => todo!(),
+            _ => {
+                return Err(DeriveConstraintError::not_supported(
+                    "implementation self type",
+                    &value.self_ty,
+                ))
+            }
         };
 
         let mut methods = Vec::with_capacity(value.items.len());
@@ -561,11 +569,8 @@ impl<'s> TryFrom<&'s syn::ItemImpl> for ParsedImpl<'s> {
             match item {
                 syn::ImplItem::Const(_) => todo!(),
                 syn::ImplItem::Fn(m) => {
-                    if let Ok(parsed) = ParsedMethod::try_from(m) {
-                        methods.push(parsed)
-                    } else {
-                        todo!()
-                    }
+                    let parsed = ParsedMethod::try_from(m)?;
+                    methods.push(parsed);
                 }
                 syn::ImplItem::Type(_) => todo!(),
                 syn::ImplItem::Macro(_) => todo!(),
@@ -588,7 +593,7 @@ struct ParsedMethod<'s> {
 }
 
 impl<'s> TryFrom<&'s syn::ImplItemFn> for ParsedMethod<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::ImplItemFn) -> Result<Self, Self::Error> {
         todo!()
@@ -603,7 +608,7 @@ struct ParsedSignature<'s> {
 }
 
 impl<'s> TryFrom<&'s syn::Signature> for ParsedSignature<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::Signature) -> Result<Self, Self::Error> {
         //todo evaluate other fields
@@ -623,7 +628,7 @@ struct ParsedInputs<'s> {
 impl<'s> TryFrom<&'s syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>>
     for ParsedInputs<'s>
 {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(
         value: &'s syn::punctuated::Punctuated<syn::FnArg, syn::token::Comma>,
@@ -643,7 +648,7 @@ enum ParsedReturnType<'s> {
 }
 
 impl<'s> TryFrom<&'s syn::ReturnType> for ParsedReturnType<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::ReturnType) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -660,7 +665,7 @@ enum ParsedFnArg<'s> {
 }
 
 impl<'s> TryFrom<&'s syn::FnArg> for ParsedFnArg<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::FnArg) -> Result<Self, Self::Error> {
         Ok(match value {
@@ -674,7 +679,7 @@ impl<'s> TryFrom<&'s syn::FnArg> for ParsedFnArg<'s> {
 struct ParsedReceiver<'s>(PhantomData<&'s ()>);
 
 impl<'s> TryFrom<&'s syn::Receiver> for ParsedReceiver<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::Receiver) -> Result<Self, Self::Error> {
         //todo ... do any of the fields matter?
