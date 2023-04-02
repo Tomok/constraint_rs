@@ -4,7 +4,31 @@ use std::marker::PhantomData;
 
 use proc_macro2::Span;
 use quote::ToTokens;
-use syn::Token;
+use syn::{spanned::Spanned, Token};
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+enum DeriveConstraintError {
+    #[error("{element:?} with value {value:?} ({location:?}) not supported (yet)")]
+    NotSupported {
+        element: &'static str,
+        value: String,
+        location: Span,
+    },
+}
+
+impl DeriveConstraintError {
+    fn not_supported(element: &'static str, value: impl std::fmt::Debug + Spanned) -> Self {
+        let value = format!("{:#?}", value);
+        let location = value.span();
+        Self::NotSupported {
+            element,
+            value,
+            location,
+        }
+    }
+}
 
 #[proc_macro_attribute]
 pub fn constrained_mod(
@@ -366,7 +390,8 @@ impl ParsedStruct {
         //});
         //dbg!(format!("{}", t2.to_token_stream()));
         //todo!()
-        let mut named_fields: syn::punctuated::Punctuated<syn::Field, syn::token::Comma> = syn::punctuated::Punctuated::new();
+        let mut named_fields: syn::punctuated::Punctuated<syn::Field, syn::token::Comma> =
+            syn::punctuated::Punctuated::new();
         named_fields.push(syn::Field {
             attrs: vec![],
             vis: syn::Visibility::Inherited,
@@ -535,7 +560,7 @@ impl<'s> TryFrom<&'s syn::ItemImpl> for ParsedImpl<'s> {
         for item in &value.items {
             match item {
                 syn::ImplItem::Const(_) => todo!(),
-                syn::ImplItem::Method(m) => {
+                syn::ImplItem::Fn(m) => {
                     if let Ok(parsed) = ParsedMethod::try_from(m) {
                         methods.push(parsed)
                     } else {
@@ -562,10 +587,10 @@ struct ParsedMethod<'s> {
     output: ParsedReturnType<'s>,
 }
 
-impl<'s> TryFrom<&'s syn::ImplItemMethod> for ParsedMethod<'s> {
+impl<'s> TryFrom<&'s syn::ImplItemFn> for ParsedMethod<'s> {
     type Error = ();
 
-    fn try_from(value: &'s syn::ImplItemMethod) -> Result<Self, Self::Error> {
+    fn try_from(value: &'s syn::ImplItemFn) -> Result<Self, Self::Error> {
         todo!()
     }
 }
@@ -659,15 +684,49 @@ impl<'s> TryFrom<&'s syn::Receiver> for ParsedReceiver<'s> {
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 struct ParsedPatType<'s> {
-    p: PhantomData<&'s ()>, //todo
+    ident: &'s syn::Ident,
+    ty: ParsedType<'s>,
 }
 
 impl<'s> TryFrom<&'s syn::PatType> for ParsedPatType<'s> {
-    type Error = ();
+    type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::PatType) -> Result<Self, Self::Error> {
-        dbg!(value);
-        todo!()
+        fn pat2ident(pat: &syn::Pat) -> Result<&syn::Ident, DeriveConstraintError> {
+            if let syn::Pat::Ident(pat_ident) = pat {
+                Ok(&pat_ident.ident)
+            } else {
+                Err(DeriveConstraintError::not_supported("Pat", &pat))
+            }
+        }
+        let ident = pat2ident(&value.pat)?;
+        let ty = ParsedType::try_from(&*value.ty)?;
+        Ok(Self { ident, ty })
+    }
+}
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum ParsedType<'s> {
+    Path(&'s syn::Path),
+}
+
+impl<'s> ParsedType<'s> {
+    fn as_path(&self) -> Option<&&'s syn::Path> {
+        if let Self::Path(v) = self {
+            Some(v)
+        } else {
+            None
+        }
+    }
+}
+
+impl<'s> TryFrom<&'s syn::Type> for ParsedType<'s> {
+    type Error = DeriveConstraintError;
+
+    fn try_from(value: &'s syn::Type) -> Result<Self, Self::Error> {
+        match value {
+            syn::Type::Path(p) => Ok(Self::Path(&p.path)),
+            _ => Err(DeriveConstraintError::not_supported("Type", &value)),
+        }
     }
 }
 
@@ -981,7 +1040,15 @@ mod tests {
             fn func(foo: u64) {}
         };
 
-        let pat_type: syn::PatType = syn::parse_quote! {foo: u64};
-        let parsed = ParsedPatType::try_from(pat_type).unwrap();
+        if let syn::FnArg::Typed(pat_type) = input_fn.sig.inputs.first().unwrap() {
+            let parsed = ParsedPatType::try_from(pat_type).unwrap();
+            assert_eq!("foo", &parsed.ident.to_string());
+            assert_eq!(
+                "u64",
+                &parsed.ty.as_path().unwrap().to_token_stream().to_string()
+            );
+        } else {
+            panic!("could not get pat_type from input")
+        }
     }
 }
