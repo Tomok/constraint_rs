@@ -701,7 +701,7 @@ impl<'s> TryFrom<&'s syn::PatType> for ParsedPatType<'s> {
             if let syn::Pat::Ident(pat_ident) = pat {
                 Ok(&pat_ident.ident)
             } else {
-                Err(DeriveConstraintError::not_supported("Pat", &pat))
+                Err(DeriveConstraintError::not_supported("Pat", pat))
             }
         }
         let ident = pat2ident(&value.pat)?;
