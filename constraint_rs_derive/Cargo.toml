@@ -12,6 +12,7 @@ proc-macro = true
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version="2.0.12", features = ["derive", "proc-macro", "extra-traits", "full"] }
+thiserror = "1.0.40"
 
 [dev-dependencies]
 constraint_rs = { path="../constraint_rs" }
