@@ -1,7 +1,5 @@
 extern crate proc_macro;
 
-use std::marker::PhantomData;
-
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{spanned::Spanned, Token};
@@ -660,7 +658,7 @@ impl<'s> TryFrom<&'s syn::ReturnType> for ParsedReturnType<'s> {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 enum ParsedFnArg<'s> {
-    Receiver(ParsedReceiver<'s>),
+    Receiver(ParsedReceiver),
     Typed(ParsedPatType<'s>),
 }
 
@@ -676,14 +674,18 @@ impl<'s> TryFrom<&'s syn::FnArg> for ParsedFnArg<'s> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct ParsedReceiver<'s>(PhantomData<&'s ()>);
+/// the self argument of a method see [syn::Receiver]
+struct ParsedReceiver {
+    mutable: bool,
+}
 
-impl<'s> TryFrom<&'s syn::Receiver> for ParsedReceiver<'s> {
+impl<'s> TryFrom<&'s syn::Receiver> for ParsedReceiver {
     type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::Receiver) -> Result<Self, Self::Error> {
-        //todo ... do any of the fields matter?
-        Ok(Self(PhantomData::default()))
+        Ok(Self {
+            mutable: value.mutability.is_some(),
+        })
     }
 }
 
