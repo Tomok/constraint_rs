@@ -586,15 +586,15 @@ impl<'s> TryFrom<&'s syn::ItemImpl> for ParsedImpl<'s> {
 #[derive(Debug, PartialEq, Eq, Clone)]
 struct ParsedMethod<'s> {
     signature: ParsedSignature<'s>,
-    inputs: ParsedInputs<'s>,
-    output: ParsedReturnType<'s>,
+    //todo: other fields
 }
 
 impl<'s> TryFrom<&'s syn::ImplItemFn> for ParsedMethod<'s> {
     type Error = DeriveConstraintError;
 
     fn try_from(value: &'s syn::ImplItemFn) -> Result<Self, Self::Error> {
-        todo!()
+        let signature = (&value.sig).try_into()?;
+        Ok(Self { signature })
     }
 }
 
