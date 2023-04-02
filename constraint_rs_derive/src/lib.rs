@@ -732,7 +732,7 @@ impl<'s> TryFrom<&'s syn::Type> for ParsedType<'s> {
     fn try_from(value: &'s syn::Type) -> Result<Self, Self::Error> {
         match value {
             syn::Type::Path(p) => Ok(Self::Path(&p.path)),
-            _ => Err(DeriveConstraintError::not_supported("Type", &value)),
+            _ => Err(DeriveConstraintError::not_supported("Type", value)),
         }
     }
 }
