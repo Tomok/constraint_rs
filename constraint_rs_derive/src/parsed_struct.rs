@@ -1,6 +1,8 @@
 use proc_macro2::Span;
 use syn::Token;
 
+use crate::parsed_impl::{ParsedImpl, ParsedMethod};
+
 fn constrained_struct_ident(ident: &syn::Ident) -> syn::Ident {
     syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site())
 }
@@ -48,20 +50,28 @@ impl ParsedStruct {
         Self::new(typ, ident, fields)
     }
 
-    pub fn constrained_struct(&self) -> syn::ItemStruct {
+    pub fn constrained_struct(&self, relevant_implementations: &Vec<&ParsedImpl>) -> syn::ItemStruct {
         let constrained_struct_ident = &self.constrained_struct_ident;
+        let functions = relevant_implementations
+            .iter()
+            .map(|x|x.methods().iter())
+            .flatten()
+            .map(|m| {
+                m.ident()
+            });
         syn::parse_quote!(
             pub struct #constrained_struct_ident<'s, 'ctx> {
                 context: &'s constraint_rs::Context<'ctx>,
                 data_type: constraint_rs::DataType<'ctx>,
+                #(#functions : z3::RecFuncDecl<'ctx>),*
             }
         )
     }
 
-    pub fn constrained_struct_impl(&self) -> syn::ItemImpl {
+    pub fn constrained_struct_impl(&self, relevant_implementations: &[&ParsedImpl]) -> syn::ItemImpl {
         let constrained_struct_ident = &self.constrained_struct_ident;
         let constrained_value_ident = &self.constrained_value_ident;
-        let constrained_type_new_fn = self.constrained_type_new_fn();
+        let constrained_type_new_fn = self.constrained_type_new_fn(relevant_implementations);
         let constrained_type_value_from_z3_dynamic = self.constrained_type_value_from_z3_dynamic();
         syn::parse_quote!(
             impl<'s, 'ctx> constraint_rs::ConstrainedType<'s, 'ctx> for #constrained_struct_ident<'s, 'ctx>
@@ -115,7 +125,7 @@ impl ParsedStruct {
         )
     }
 
-    pub fn value_impl(&self) -> syn::ItemImpl {
+    pub fn value_trait_impl(&self) -> syn::ItemImpl {
         let ident = &self.ident;
         let constrained_value_ident = &self.constrained_value_ident;
 
@@ -147,13 +157,14 @@ impl ParsedStruct {
         )
     }
 
-    pub fn to_syn_items(&self) -> [syn::Item; 5] {
+    pub fn to_syn_items(&self, relevant_implementations: Vec<&ParsedImpl>) -> [syn::Item; 6] {
         [
-            self.constrained_struct().into(),
-            self.constrained_struct_impl().into(),
+            self.constrained_struct(&relevant_implementations).into(),
+            self.constrained_struct_impl(&relevant_implementations).into(),
             self.struct_impl().into(),
             self.value_def().into(),
-            self.value_impl().into(),
+            self.value_trait_impl().into(),
+            self.value_impl(&relevant_implementations).into(),
         ]
     }
 
@@ -323,11 +334,14 @@ impl ParsedStruct {
         )
     }
 
-    fn constrained_type_new_fn(&self) -> syn::ImplItemFn {
+    fn constrained_type_new_fn(&self, relevant_implementations: &[&ParsedImpl]) -> syn::ImplItemFn {
         // let fields = vec![(
         //    "f",
         //    z3::DatatypeAccessor::Sort(u64::constrained_type(context).z3_sort().clone()),
         //)];
+        if !relevant_implementations.is_empty() {
+            todo!("generating functions not yet supported");
+        }
         let str_ident = &self.str_ident;
         let field_entries = self.fields.iter().map(|f| {
             let i = &f.ident;
@@ -349,6 +363,29 @@ impl ParsedStruct {
                     context,
                     data_type
                 }
+            }
+        )
+    }
+
+    pub fn ident(&self) -> &syn::Ident {
+        &self.ident
+    }
+
+    fn value_impl(&self, relevant_implementations: &[&ParsedImpl]) -> syn::ItemImpl {
+        let constrained_value_ident = &self.constrained_value_ident;
+
+        let functions = relevant_implementations
+            .iter()
+            .map(|i| i.methods())
+            .flatten()
+            .map(ParsedMethod::to_constrained_value_impl_func);
+
+        syn::parse_quote!(
+            impl<'s, 'ctx> #constrained_value_ident<'s, 'ctx>
+            where
+                'ctx: 's,
+            {
+                #(#functions)*
             }
         )
     }
@@ -512,7 +549,7 @@ mod test {
             }";
         let ident = syn::Ident::new("MyType", Span::call_site());
         let parsed = ParsedStruct::new(StructType::Named, ident, one_field());
-        let generated = parsed.constrained_type_new_fn();
+        let generated = parsed.constrained_type_new_fn(&[]);
         let generated_str = format!("{}", generated.to_token_stream());
         assert_eq!(
             harmonize_syn_str(expected),
