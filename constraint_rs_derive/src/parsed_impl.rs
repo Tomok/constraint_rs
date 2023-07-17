@@ -312,7 +312,6 @@ impl<'s> ParsedType<'s> {
     fn as_path(&self) -> Option<&&'s syn::Path> {
         match self {
             Self::Path(v) => Some(v),
-            _ => None,
         }
     }
 
