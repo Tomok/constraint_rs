@@ -71,7 +71,7 @@ pub struct ParsedMethod<'s> {
 }
 
 impl<'s> ParsedMethod<'s> {
-    pub fn ident(&self) -> &'s syn::Ident{
+    pub fn ident(&self) -> &'s syn::Ident {
         self.signature.ident
     }
 
@@ -87,17 +87,20 @@ impl<'s> ParsedMethod<'s> {
         let func_ident = self.ident();
         let func_params = self.signature.inputs.to_constrained_value_impl_func_args();
         let return_type = self.signature.output.to_constrained_type_value_stmt();
-        let apply_args = self.signature.inputs.to_constrained_value_impl_func_apply_args();
-        let applied_fn_stmt: syn::Stmt = syn::parse_quote!{
+        let apply_args = self
+            .signature
+            .inputs
+            .to_constrained_value_impl_func_apply_args();
+        let applied_fn_stmt: syn::Stmt = syn::parse_quote! {
             let applied_fn = self.typ.#func_ident.apply(&#apply_args);
         };
         let as_has_constrained_type = self.signature.output.to_has_constrained_type_stmt();
-        let return_stmt: syn::Stmt = syn::parse_quote!{
+        let return_stmt: syn::Stmt = syn::parse_quote! {
             #as_has_constrained_type::constrained_type(self.typ.context)
             .value_from_z3_dynamic(applied_fn)
             .unwrap()
         };
-        syn::parse_quote!{
+        syn::parse_quote! {
             fn #func_ident(#(#func_params),*) -> #return_type {
                 #applied_fn_stmt;
                 #return_stmt
@@ -113,7 +116,11 @@ impl<'s> TryFrom<&'s syn::ImplItemFn> for ParsedMethod<'s> {
         let signature = (&value.sig).try_into()?;
         let visibility = (&value.vis).into();
         let block = (&value.block).into();
-        Ok(Self { signature, visibility, block })
+        Ok(Self {
+            signature,
+            visibility,
+            block,
+        })
     }
 }
 
@@ -138,14 +145,13 @@ impl<'s> TryFrom<&'s syn::Signature> for ParsedSignature<'s> {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-struct ParsedVisibility<'s> (&'s syn::Visibility);
+struct ParsedVisibility<'s>(&'s syn::Visibility);
 
-impl<'s> From<&'s syn::Visibility> for ParsedVisibility<'s>{
+impl<'s> From<&'s syn::Visibility> for ParsedVisibility<'s> {
     fn from(value: &'s syn::Visibility) -> Self {
-       Self(value) 
+        Self(value)
     }
 }
-
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ParsedBlock<'s>(&'s syn::Block);
@@ -155,7 +161,6 @@ impl<'s> From<&'s syn::Block> for ParsedBlock<'s> {
         Self(value)
     }
 }
-
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ParsedInputs<'s> {
@@ -197,7 +202,7 @@ impl<'s> ParsedReturnType<'s> {
     pub fn to_constrained_type_value_stmt(&self) -> syn::Type {
         // <<u64 as HasConstrainedType>::ConstrainedType as ConstrainedType>::ValueType
         let has_constrained_stmt = self.to_has_constrained_type_stmt();
-        syn::parse_quote!{
+        syn::parse_quote! {
             #has_constrained_stmt::ConstrainedType as ConstrainedType>::ValueType
         }
     }
@@ -205,8 +210,8 @@ impl<'s> ParsedReturnType<'s> {
     pub fn to_has_constrained_type_stmt(&self) -> syn::Type {
         // <u64 as HasConstrainedType>
         match self {
-            ParsedReturnType::Default => todo!(),//syn::parse_quote!{()},
-            ParsedReturnType::Type(t) => syn::parse_quote!{
+            ParsedReturnType::Default => todo!(), //syn::parse_quote!{()},
+            ParsedReturnType::Type(t) => syn::parse_quote! {
                 <#t as HasConstrainedType>
             },
         }
@@ -259,7 +264,7 @@ impl ParsedReceiver {
     fn to_fn_arg(&self) -> syn::FnArg {
         match self.mutable {
             true => todo!(),
-            false => syn::parse_quote!{&self},
+            false => syn::parse_quote! {&self},
         }
     }
 }
@@ -282,8 +287,8 @@ struct ParsedPatType<'s> {
 impl<'s> ParsedPatType<'s> {
     fn fn_arg(&self) -> syn::FnArg {
         let ident = self.ident;
-        let ty = self.ty.constrained_type_stmt();   
-        syn::parse_quote!{#ident: #ty}
+        let ty = self.ty.constrained_type_stmt();
+        syn::parse_quote! {#ident: #ty}
     }
 }
 
@@ -317,7 +322,7 @@ impl<'s> ParsedType<'s> {
 
     fn constrained_type_stmt(&self) -> syn::Path {
         match self {
-            ParsedType::Path(p) => syn::parse_quote!{<#p as HasConstrainedType>::ConstrainedType},
+            ParsedType::Path(p) => syn::parse_quote! {<#p as HasConstrainedType>::ConstrainedType},
         }
     }
 }

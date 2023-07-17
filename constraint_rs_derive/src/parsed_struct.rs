@@ -54,10 +54,8 @@ impl ParsedStruct {
         let constrained_struct_ident = &self.constrained_struct_ident;
         let functions = relevant_implementations
             .iter()
-            .flat_map(|x|x.methods().iter())
-            .map(|m| {
-                m.ident()
-            });
+            .flat_map(|x| x.methods().iter())
+            .map(|m| m.ident());
         syn::parse_quote!(
             pub struct #constrained_struct_ident<'s, 'ctx> {
                 context: &'s constraint_rs::Context<'ctx>,
@@ -67,7 +65,10 @@ impl ParsedStruct {
         )
     }
 
-    pub fn constrained_struct_impl(&self, relevant_implementations: &[&ParsedImpl]) -> syn::ItemImpl {
+    pub fn constrained_struct_impl(
+        &self,
+        relevant_implementations: &[&ParsedImpl],
+    ) -> syn::ItemImpl {
         let constrained_struct_ident = &self.constrained_struct_ident;
         let constrained_value_ident = &self.constrained_value_ident;
         let constrained_type_new_fn = self.constrained_type_new_fn(relevant_implementations);
@@ -159,7 +160,8 @@ impl ParsedStruct {
     pub fn to_syn_items(&self, relevant_implementations: Vec<&ParsedImpl>) -> [syn::Item; 6] {
         [
             self.constrained_struct(&relevant_implementations).into(),
-            self.constrained_struct_impl(&relevant_implementations).into(),
+            self.constrained_struct_impl(&relevant_implementations)
+                .into(),
             self.struct_impl().into(),
             self.value_def().into(),
             self.value_trait_impl().into(),
