@@ -216,6 +216,24 @@ mod test {
     }
 
     #[test]
+    fn test_u64_add() {
+        let cfg = z3::Config::new();
+        let z3_context = z3::Context::new(&cfg);
+        let context = Context::new(&z3_context);
+        let constrained_type = u64::constrained_type(&context);
+        let const_value_a= constrained_type.fresh_value("a");
+        let const_value_b= constrained_type.fresh_value("b");
+        //todo: should not be necessary to call z3 directly in the future...
+        let solver = z3::Solver::new(&z3_context);
+        const_value_a.assign_value(&solver, &2);
+        const_value_b.assign_value(&solver, &40);
+        let add_result = const_value_a.add(&const_value_b);
+        assert_eq!(z3::SatResult::Sat, solver.check());
+        let model = solver.get_model().unwrap();
+        let value = add_result.eval(&model).unwrap();
+        assert_eq!(42, value);
+    }
+    #[test]
     fn test_u8() {
         let cfg = z3::Config::new();
         let z3_context = z3::Context::new(&cfg);
