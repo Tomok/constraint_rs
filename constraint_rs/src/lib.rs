@@ -161,9 +161,16 @@ mod tests {
         #[derive(Debug, PartialEq, Eq)]
         pub struct Empty();
 
+        impl Empty {
+            pub fn add(a: u64, b: u64) -> u64 {
+                a + b
+            }
+        }
+
         pub struct EmptyConstrainedType<'s, 'ctx> {
             context: &'s Context<'ctx>,
             data_type: DataType<'ctx>,
+            add: z3::RecFuncDecl<'ctx>,
         }
 
         impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for EmptyConstrainedType<'s, 'ctx>
@@ -178,7 +185,41 @@ mod tests {
                         .variant("", vec![])
                         .finish()
                 });
-                Self { context, data_type }
+                let add = z3::RecFuncDecl::new(
+                    context.z3_context(),
+                    "Empty.add",
+                    &[
+                        &u64::constrained_type(context).z3_sort(),
+                        &u64::constrained_type(context).z3_sort(),
+                    ],
+                    u64::constrained_type(context).z3_sort(),
+                );
+                {
+                    let a: z3::ast::Dynamic<'ctx> = z3::ast::Datatype::fresh_const(
+                        context.z3_context(),
+                        "Empty.add#a",
+                        &u64::constrained_type(context).z3_sort(),
+                    )
+                    .into();
+                    let a = u64::constrained_type(context).fresh_value("Empty.add#a");
+                    let b = u64::constrained_type(context).fresh_value("Empty.add#b");
+
+                    let b_const: z3::ast::Dynamic<'ctx> = z3::ast::Datatype::fresh_const(
+                        context.z3_context(),
+                        "Empty.add#b",
+                        &u64::constrained_type(context).z3_sort(),
+                    )
+                    .into();
+                    add.add_def(
+                        &[&a.z3().clone().into(), &b.z3().clone().into()],
+                        a.add(&b).z3(),
+                    );
+                }
+                Self {
+                    context,
+                    data_type,
+                    add,
+                }
             }
 
             fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
@@ -238,6 +279,15 @@ mod tests {
             val: z3::ast::Datatype<'ctx>,
         }
 
+        impl<'s, 'ctx> EmptyConstrainedValue<'s, 'ctx> {
+            pub fn add(
+                a: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
+                b: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
+            )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
+                a.add(&b)
+            }
+        }
+
         impl<'s, 'ctx> ConstrainedValue<'s, 'ctx> for EmptyConstrainedValue<'s, 'ctx>
         where
             'ctx: 's,
@@ -280,6 +330,21 @@ mod tests {
             solver.assert(&val2.val._safe_eq(&val1.val).expect("Type missmatch").not());
             assert_eq!(z3::SatResult::Unsat, solver.check());
             assert!(solver.get_model().is_none());
+        }
+
+        #[test]
+        fn test_constrained_value_add() {
+            let config = z3::Config::new();
+            let ctx = z3::Context::new(&config);
+            let context = Context::new(&ctx);
+            let a = 40u64.constrained(&context.z3_context());
+            let b = 2u64.constrained(&context.z3_context());
+            let add_res = EmptyConstrainedValue::add(a, b);
+            let add_res_expected = 42u64.constrained(&context.z3_context());
+
+            let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
+            solver.assert(&add_res._eq(&add_res_expected).z3());
+            assert_eq!(z3::SatResult::Sat, solver.check());
         }
     }
 
