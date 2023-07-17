@@ -50,12 +50,11 @@ impl ParsedStruct {
         Self::new(typ, ident, fields)
     }
 
-    pub fn constrained_struct(&self, relevant_implementations: &Vec<&ParsedImpl>) -> syn::ItemStruct {
+    pub fn constrained_struct(&self, relevant_implementations: &[&ParsedImpl]) -> syn::ItemStruct {
         let constrained_struct_ident = &self.constrained_struct_ident;
         let functions = relevant_implementations
             .iter()
-            .map(|x|x.methods().iter())
-            .flatten()
+            .flat_map(|x|x.methods().iter())
             .map(|m| {
                 m.ident()
             });
@@ -376,8 +375,7 @@ impl ParsedStruct {
 
         let functions = relevant_implementations
             .iter()
-            .map(|i| i.methods())
-            .flatten()
+            .flat_map(|i| i.methods())
             .map(ParsedMethod::to_constrained_value_impl_func);
 
         syn::parse_quote!(
