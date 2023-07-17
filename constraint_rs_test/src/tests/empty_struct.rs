@@ -6,6 +6,12 @@ use constraint_rs_derive::constrained_mod;
     mod test_struct {
         #[derive(PartialEq, Eq, Debug)]
         pub struct TestStruct;
+
+        impl TestStruct {
+            fn add(a: u64, b: u64) -> u64 {
+                a + b
+            }
+        }
     }
     use test_struct::*;
 
