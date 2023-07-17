@@ -231,10 +231,10 @@ enum ParsedFnArg<'s> {
 }
 
 impl<'s> ParsedFnArg<'s> {
-    pub fn to_func_arg(&self) -> syn::FnArg {
+    pub fn func_arg(&self) -> syn::FnArg {
         match self {
             ParsedFnArg::Receiver(r) => r.to_fn_arg(),
-            ParsedFnArg::Typed(t) => t.to_fn_arg(),
+            ParsedFnArg::Typed(t) => t.fn_arg(),
         }
     }
 }
@@ -280,9 +280,9 @@ struct ParsedPatType<'s> {
     ty: ParsedType<'s>,
 }
 impl<'s> ParsedPatType<'s> {
-    fn to_fn_arg(&self) -> syn::FnArg {
+    fn fn_arg(&self) -> syn::FnArg {
         let ident = self.ident;
-        let ty = self.ty.to_constrained_type_stmt();   
+        let ty = self.ty.constrained_type_stmt();   
         syn::parse_quote!{#ident: #ty}
     }
 }
@@ -316,7 +316,7 @@ impl<'s> ParsedType<'s> {
         }
     }
 
-    fn to_constrained_type_stmt(&self) -> syn::Path {
+    fn constrained_type_stmt(&self) -> syn::Path {
         match self {
             ParsedType::Path(p) => syn::parse_quote!{<#p as HasConstrainedType>::ConstrainedType},
         }
