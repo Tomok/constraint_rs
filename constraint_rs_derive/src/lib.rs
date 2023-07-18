@@ -17,8 +17,8 @@ pub fn constrained_mod(
     if let Some((_, ref mut items)) = module.content {
         for item in items.iter() {
             match item {
-                syn::Item::Enum(_) => todo!(),
-                syn::Item::Fn(_) => todo!(),
+                syn::Item::Enum(_) => todo!("syn::Item::Enum"),
+                syn::Item::Fn(_) => todo!("syn::Item::Fn"),
                 syn::Item::Impl(i) => {
                     let parsed = ParsedImpl::try_from(i).unwrap();
                     parsed_impls.push(parsed);
@@ -27,11 +27,11 @@ pub fn constrained_mod(
                     let parsed = ParsedStruct::from_item_struct(s);
                     parsed_structs.push(parsed);
                 }
-                syn::Item::Trait(_) => todo!(),
-                syn::Item::TraitAlias(_) => todo!(),
-                syn::Item::Type(_) => todo!(),
-                syn::Item::Union(_) => todo!(),
-                _ => todo!(),
+                syn::Item::Trait(_) => todo!("syn::Item::Trait"),
+                syn::Item::TraitAlias(_) => todo!("syn::Item::TraitAlias"),
+                syn::Item::Type(_) => todo!("syn::Item::Type"),
+                syn::Item::Union(_) => todo!("syn::Item::Union"),
+                _ => todo!("syn::Item::<unknown>"),
             }
         }
         let additional_items_capacity = 6 * parsed_structs.len();
@@ -82,8 +82,8 @@ impl ParsedDeriveInput {
     pub fn to_syn_items(&self) -> [syn::Item; 6] {
         match self {
             ParsedDeriveInput::Struct(s) => s.to_syn_items(vec![]),
-            ParsedDeriveInput::Enum() => todo!(),
-            ParsedDeriveInput::Union() => todo!(),
+            ParsedDeriveInput::Enum() => todo!("ParsedDeriveInput::Enum"),
+            ParsedDeriveInput::Union() => todo!("ParsedDeriveInput::Union"),
         }
     }
 }
@@ -95,8 +95,8 @@ impl From<syn::DeriveInput> for ParsedDeriveInput {
             syn::Data::Struct(data_struct) => {
                 Self::Struct(ParsedStruct::from_data_struct(ident, &data_struct))
             }
-            syn::Data::Enum(_) => todo!(),
-            syn::Data::Union(_) => todo!(),
+            syn::Data::Enum(_) => todo!("syn::Data::Enum"),
+            syn::Data::Union(_) => todo!("syn::Data::Union"),
         }
     }
 }

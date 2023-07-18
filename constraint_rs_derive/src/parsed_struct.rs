@@ -461,25 +461,25 @@ impl ParsedField {
 
     fn field_for_datatype_type_field(field: &syn::Field) -> syn::Expr {
         match &field.ty {
-            syn::Type::Array(_) => todo!(),
-            syn::Type::BareFn(_) => todo!(),
-            syn::Type::Group(_) => todo!(),
-            syn::Type::ImplTrait(_) => todo!(),
-            syn::Type::Infer(_) => todo!(),
-            syn::Type::Macro(_) => todo!(),
-            syn::Type::Never(_) => todo!(),
-            syn::Type::Paren(_) => todo!(),
+            syn::Type::Array(_) => todo!("syn::Type::Array"),
+            syn::Type::BareFn(_) => todo!("syn::Type::BareFn"),
+            syn::Type::Group(_) => todo!("syn::Type::Group"),
+            syn::Type::ImplTrait(_) => todo!("syn::Type::ImplTrait"),
+            syn::Type::Infer(_) => todo!("syn::Type::Infer"),
+            syn::Type::Macro(_) => todo!("syn::Type::Macro"),
+            syn::Type::Never(_) => todo!("syn::Type::Never"),
+            syn::Type::Paren(_) => todo!("syn::Type::Paren"),
             syn::Type::Path(p) => {
                 syn::parse_quote!( #p )
                 //z3::DatatypeAccessor::Sort(#p::constrained_type(context).z3_sort().clone()),
             }
-            syn::Type::Ptr(_) => todo!(),
-            syn::Type::Reference(_) => todo!(),
-            syn::Type::Slice(_) => todo!(),
-            syn::Type::TraitObject(_) => todo!(),
-            syn::Type::Tuple(_) => todo!(),
-            syn::Type::Verbatim(_) => todo!(),
-            _ => todo!(),
+            syn::Type::Ptr(_) => todo!("syn::Type::Path"),
+            syn::Type::Reference(_) => todo!("syn::Type::Reference"),
+            syn::Type::Slice(_) => todo!("syn::Type::Slice"),
+            syn::Type::TraitObject(_) => todo!("syn::Type::TraitObject"),
+            syn::Type::Tuple(_) => todo!("syn::Type::Tuple"),
+            syn::Type::Verbatim(_) => todo!("syn::Type::Verbatim"),
+            _ => todo!("syn::Type::<unknown>"),
         }
     }
 }

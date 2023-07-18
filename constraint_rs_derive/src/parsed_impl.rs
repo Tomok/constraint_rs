@@ -45,15 +45,15 @@ impl<'s> TryFrom<&'s syn::ItemImpl> for ParsedImpl<'s> {
         let mut methods = Vec::with_capacity(value.items.len());
         for item in &value.items {
             match item {
-                syn::ImplItem::Const(_) => todo!(),
+                syn::ImplItem::Const(_) => todo!("syn::ImplItem::Const"),
                 syn::ImplItem::Fn(m) => {
                     let parsed = ParsedMethod::try_from(m)?;
                     methods.push(parsed);
                 }
-                syn::ImplItem::Type(_) => todo!(),
-                syn::ImplItem::Macro(_) => todo!(),
-                syn::ImplItem::Verbatim(_) => todo!(),
-                _ => todo!(),
+                syn::ImplItem::Type(_) => todo!("syn::ImplItem::Type"),
+                syn::ImplItem::Macro(_) => todo!("syn::ImplItem::Macro"),
+                syn::ImplItem::Verbatim(_) => todo!("syn::ImplItem::Verbatim"),
+                _ => todo!("syn::ImplItem::<unknown>"),
             }
         }
         Ok(Self {
@@ -168,11 +168,13 @@ pub struct ParsedInputs<'s> {
 }
 impl<'s> ParsedInputs<'s> {
     fn to_constrained_value_impl_func_apply_args(&self) -> syn::PatSlice {
-        todo!()
+        todo!("Method to_constrained_value_impl_func_apply_args")
     }
 
     fn to_constrained_value_impl_func_args(&self) -> Vec<syn::FnArg> {
-        todo!()
+        todo!("Method to_constrained_value_impl_func_args")
+    }
+
     }
 }
 
@@ -210,7 +212,7 @@ impl<'s> ParsedReturnType<'s> {
     pub fn to_has_constrained_type_stmt(&self) -> syn::Type {
         // <u64 as HasConstrainedType>
         match self {
-            ParsedReturnType::Default => todo!(), //syn::parse_quote!{()},
+            ParsedReturnType::Default => todo!("ParsedReturnType::Default"), //syn::parse_quote!{()},
             ParsedReturnType::Type(t) => syn::parse_quote! {
                 <#t as HasConstrainedType>
             },
