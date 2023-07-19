@@ -185,7 +185,7 @@ mod tests {
                         .variant("", vec![])
                         .finish()
                 });
-                let add = { 
+                let add = {
                     let add = z3::RecFuncDecl::new(
                         context.z3_context(),
                         "Empty.add",
@@ -195,9 +195,11 @@ mod tests {
                         ],
                         <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
                     );
-                
-                    let a = <u64 as HasConstrainedType>::constrained_type(context).fresh_value("Empty.add#a");
-                    let b = <u64 as HasConstrainedType>::constrained_type(context).fresh_value("Empty.add#b");
+
+                    let a = <u64 as HasConstrainedType>::constrained_type(context)
+                        .fresh_value("Empty.add#a");
+                    let b = <u64 as HasConstrainedType>::constrained_type(context)
+                        .fresh_value("Empty.add#b");
                     add.add_def(
                         &[&a.z3().clone().into(), &b.z3().clone().into()],
                         a.add(&b).z3(),
@@ -273,7 +275,10 @@ mod tests {
                 a: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                 b: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
             )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
-                let applied_fn = self.typ.add.apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
+                let applied_fn = self
+                    .typ
+                    .add
+                    .apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
                 <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                     .value_from_z3_dynamic(applied_fn)
                     .unwrap()
@@ -379,7 +384,11 @@ mod tests {
             fn new(context: &'s Context<'ctx>) -> Self {
                 let fields = vec![(
                     "f",
-                    z3::DatatypeAccessor::Sort(<u64 as HasConstrainedType>::constrained_type(context).z3_sort().clone()),
+                    z3::DatatypeAccessor::Sort(
+                        <u64 as HasConstrainedType>::constrained_type(context)
+                            .z3_sort()
+                            .clone(),
+                    ),
                 )];
                 let data_type = context.enter_or_get_datatype("S", |c| {
                     z3::DatatypeBuilder::new(c, "S")
@@ -423,9 +432,10 @@ mod tests {
                 &'s self,
                 val: z3::ast::Dynamic<'ctx>,
             ) -> Option<Self::ValueType> {
-                let f = <u64 as HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic(
-                    self.data_type.0.variants[0].accessors[0].apply(&[&val]),
-                )?;
+                let f = <u64 as HasConstrainedType>::constrained_type(self.context)
+                    .value_from_z3_dynamic(
+                        self.data_type.0.variants[0].accessors[0].apply(&[&val]),
+                    )?;
 
                 Some(Self::ValueType {
                     val: val.as_datatype()?,

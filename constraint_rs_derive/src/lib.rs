@@ -12,7 +12,7 @@ pub fn constrained_mod(
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
     let mut module: syn::ItemMod = syn::parse(item).unwrap();
-  
+
     if let Some((_, ref mut items)) = module.content {
         let additional_items = module_items_to_derived_value_items(&items);
         items.extend(additional_items);
@@ -43,7 +43,7 @@ fn module_items_to_derived_value_items(items: &[syn::Item]) -> Vec<syn::Item> {
             syn::Item::TraitAlias(_) => todo!("syn::Item::TraitAlias"),
             syn::Item::Type(_) => todo!("syn::Item::Type"),
             syn::Item::Union(_) => todo!("syn::Item::Union"),
-            syn::Item::Use(_) => {/* nothing to do here */},
+            syn::Item::Use(_) => { /* nothing to do here */ }
             unknown => todo!("syn::Item::<unknown>: {:#?}", unknown),
         }
     }
@@ -267,7 +267,7 @@ mod tests {
             }
         }
     }
-    
+
     #[test]
     fn derive_module_with_empty_struct_and_one_func() {
         let input: syn::ItemMod = syn::parse_quote!(
@@ -303,26 +303,34 @@ mod tests {
                                 .variant("", vec![])
                                 .finish()
                         });
-                        let add = { 
+                        let add = {
                             let add = z3::RecFuncDecl::new(
                                 context.z3_context(),
                                 "Test.add",
                                 &[
-                                    <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
-                                    <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
+                                    <u64 as HasConstrainedType>::constrained_type(context)
+                                        .z3_sort(),
+                                    <u64 as HasConstrainedType>::constrained_type(context)
+                                        .z3_sort(),
                                 ],
                                 <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
                             );
-                        
-                            let a = <u64 as HasConstrainedType>::constrained_type(context).fresh_value("Test.add#a");
-                            let b = <u64 as HasConstrainedType>::constrained_type(context).fresh_value("Test.add#b");
+
+                            let a = <u64 as HasConstrainedType>::constrained_type(context)
+                                .fresh_value("Test.add#a");
+                            let b = <u64 as HasConstrainedType>::constrained_type(context)
+                                .fresh_value("Test.add#b");
                             add.add_def(
                                 &[&a.z3().clone().into(), &b.z3().clone().into()],
                                 (a).add(&b).z3(),
                             );
                             add
                         };
-                        Self { context, data_type, add }
+                        Self {
+                            context,
+                            data_type,
+                            add,
+                        }
                     }
 
                     fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
@@ -406,12 +414,18 @@ mod tests {
                 }
             ),
             syn::parse_quote!(
-                impl<'s, 'ctx> TestConstrainedValue<'s, 'ctx> where 'ctx: 's {
+                impl<'s, 'ctx> TestConstrainedValue<'s, 'ctx>
+                where
+                    'ctx: 's,
+                {
                     pub fn add(&self,
                         a: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                         b: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                     )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
-                        let applied_fn = self.typ.add.apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
+                        let applied_fn = self
+                            .typ
+                            .add
+                            .apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
                         <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                             .value_from_z3_dynamic(applied_fn)
                             .unwrap()

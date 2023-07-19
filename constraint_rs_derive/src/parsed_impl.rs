@@ -95,7 +95,7 @@ impl<'s> ParsedMethod<'s> {
         let applied_fn_stmt: syn::Stmt = syn::parse_quote! {
             let applied_fn = self.typ.#func_ident.apply(&#apply_args);
         };
-        let context_var: syn::Expr = syn::parse_quote!{self.typ.context};
+        let context_var: syn::Expr = syn::parse_quote! {self.typ.context};
         let constrained_type_call = self.signature.output.constrained_type_call(&context_var);
         let return_stmt: syn::Expr = syn::parse_quote! {
             #constrained_type_call
@@ -186,9 +186,11 @@ pub struct ParsedInputs<'s> {
 impl<'s> ParsedInputs<'s> {
     fn to_constrained_value_impl_func_apply_args(&self) -> syn::ExprArray {
         //[&a.z3().clone().into(), &b.z3().clone().into()];
-        let params= self.iter().map(|p| p.to_constrained_value_impl_func_apply_arg());
+        let params = self
+            .iter()
+            .map(|p| p.to_constrained_value_impl_func_apply_arg());
         //let params = injected_params.iter().chain(params);
-        syn::parse_quote!{[#(&#params),*]}
+        syn::parse_quote! {[#(&#params),*]}
     }
 
     fn to_constrained_value_impl_func_args(&self) -> Vec<syn::FnArg> {
@@ -197,9 +199,12 @@ impl<'s> ParsedInputs<'s> {
         let args = if self.args.first().map_or(false, ParsedFnArg::is_receiver) {
             [].iter().chain(self.args.iter())
         } else {
-            [ParsedFnArg::Receiver(ParsedReceiver { mutable: false })].iter().chain(self.args.iter())
+            [ParsedFnArg::Receiver(ParsedReceiver { mutable: false })]
+                .iter()
+                .chain(self.args.iter())
         };
-        args.map(ParsedFnArg::to_constrained_value_impl_func_args).collect_vec()
+        args.map(ParsedFnArg::to_constrained_value_impl_func_args)
+            .collect_vec()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &ParsedFnArg> {
@@ -251,8 +256,8 @@ impl<'s> ParsedReturnType<'s> {
     pub fn constrained_type_call(&self, context_var_ident: &syn::Expr) -> syn::ExprCall {
         match self {
             ParsedReturnType::Default => todo!("ParsedReturnType::Default"),
-            ParsedReturnType::Type(t) => syn::parse_quote!{  
-                <#t as HasConstrainedType>::constrained_type(#context_var_ident) 
+            ParsedReturnType::Type(t) => syn::parse_quote! {
+                <#t as HasConstrainedType>::constrained_type(#context_var_ident)
             },
         }
     }
@@ -279,9 +284,7 @@ impl<'s> ParsedFnArg<'s> {
     pub fn constrained_type_call(&self, context_var_expr: &syn::Expr) -> syn::ExprCall {
         match self {
             ParsedFnArg::Receiver(_) => todo!("ParsedFnArg::Receiver"),
-            ParsedFnArg::Typed(t) => {
-                t.constrained_type_call(context_var_expr)
-            },
+            ParsedFnArg::Typed(t) => t.constrained_type_call(context_var_expr),
         }
     }
 
@@ -295,13 +298,15 @@ impl<'s> ParsedFnArg<'s> {
     pub fn ident(&self) -> &syn::Ident {
         match self {
             ParsedFnArg::Receiver(_) => todo!("Ident for ParsedFnArg::Receiver"),
-            ParsedFnArg::Typed(t) => t.ident() ,
+            ParsedFnArg::Typed(t) => t.ident(),
         }
     }
 
     pub fn to_constrained_value_impl_func_apply_arg(&self) -> syn::Expr {
         match self {
-            ParsedFnArg::Receiver(_) => todo!("to_constrained_value_impl_func_apply_arg ParsedFnArg::Receiver"),
+            ParsedFnArg::Receiver(_) => {
+                todo!("to_constrained_value_impl_func_apply_arg ParsedFnArg::Receiver")
+            }
             //a.z3().clone().into(),
             ParsedFnArg::Typed(t) => t.to_constrained_value_impl_func_apply_arg(),
         }
@@ -346,7 +351,7 @@ impl ParsedReceiver {
     fn to_constrained_value_impl_func_args(&self) -> syn::FnArg {
         match self.mutable {
             true => syn::parse_quote! {&mut self},
-            false => syn::parse_quote!{&self}
+            false => syn::parse_quote! {&self},
         }
     }
 }
@@ -379,16 +384,15 @@ impl<'s> ParsedPatType<'s> {
     fn to_constrained_value_impl_func_args(&self) -> syn::FnArg {
         let ty = self.ty.constrained_value_stmt();
         let ident = self.ident;
-        syn::parse_quote!{ #ident : &#ty }
+        syn::parse_quote! { #ident : &#ty }
     }
 
     fn to_constrained_value_impl_func_apply_arg(&self) -> syn::Expr {
         //a.z3().clone().into(),
         let ident = self.ident;
-        syn::parse_quote!{ #ident.z3().clone().into() }
+        syn::parse_quote! { #ident.z3().clone().into() }
     }
 }
-
 
 impl<'s> TryFrom<&'s syn::PatType> for ParsedPatType<'s> {
     type Error = DeriveConstraintError;
@@ -423,12 +427,14 @@ impl<'s> ParsedType<'s> {
     fn constrained_value_stmt(&self) -> syn::TypePath {
         //<<<u64> as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType
         let ty = self.constrained_type_stmt();
-        syn::parse_quote!{<#ty as ConstrainedType<'s, 'ctx>>::ValueType}
+        syn::parse_quote! {<#ty as ConstrainedType<'s, 'ctx>>::ValueType}
     }
 
     fn constrained_type_call(&self, context_var_expr: &syn::Expr) -> syn::ExprCall {
         match self {
-            ParsedType::Path(p) => syn::parse_quote!{  <#p as HasConstrainedType>::constrained_type(#context_var_expr) }
+            ParsedType::Path(p) => {
+                syn::parse_quote! {  <#p as HasConstrainedType>::constrained_type(#context_var_expr) }
+            }
         }
     }
 

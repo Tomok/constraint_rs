@@ -1,14 +1,14 @@
 use crate::parsed_impl::ParsedBlock;
 
 pub trait ToRuleGenerationExpression {
-
     ///converts [self] to rust statements generating code to pass the rules equivalent to [self] to z3
     fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr;
 }
 
 impl<'s> ToRuleGenerationExpression for ParsedBlock<'s> {
     fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
-        self.0.to_rule_generation_statements(context_variable_name_prefix)
+        self.0
+            .to_rule_generation_statements(context_variable_name_prefix)
     }
 }
 
@@ -23,14 +23,15 @@ impl ToRuleGenerationExpression for syn::Block {
     }
 }
 
-
 impl ToRuleGenerationExpression for syn::Stmt {
     fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
         match self {
             syn::Stmt::Local(_) => todo!("syn::Local"),
             syn::Stmt::Item(_) => todo!("syn::Item"),
             syn::Stmt::Expr(_e, Some(_)) => todo!("syn::Expr with Semicolon"),
-            syn::Stmt::Expr(e, None) => e.to_rule_generation_statements(context_variable_name_prefix),
+            syn::Stmt::Expr(e, None) => {
+                e.to_rule_generation_statements(context_variable_name_prefix)
+            }
             syn::Stmt::Macro(_) => todo!("syn::Macro"),
         }
     }
@@ -85,10 +86,14 @@ impl ToRuleGenerationExpression for syn::Expr {
 
 impl ToRuleGenerationExpression for syn::ExprBinary {
     fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
-        let left = self.left.to_rule_generation_statements(context_variable_name_prefix);
-        let right = self.right.to_rule_generation_statements(context_variable_name_prefix);
+        let left = self
+            .left
+            .to_rule_generation_statements(context_variable_name_prefix);
+        let right = self
+            .right
+            .to_rule_generation_statements(context_variable_name_prefix);
         let call: syn::ExprMethodCall = match self.op {
-            syn::BinOp::Add(_) => syn::parse_quote!{(#left).add(&#right)},
+            syn::BinOp::Add(_) => syn::parse_quote! {(#left).add(&#right)},
             syn::BinOp::Sub(_) => todo!("syn::BinOp::Sub"),
             syn::BinOp::Mul(_) => todo!("syn::BinOp::Mul"),
             syn::BinOp::Div(_) => todo!("syn::BinOp::Div"),
@@ -135,7 +140,7 @@ mod test {
     #[test]
     fn test_simple_add_block() {
         let input: syn::Block = syn::parse_quote!({ a + b });
-        let expected: syn::Expr = syn::parse_quote!( (a).add(&b) );
+        let expected: syn::Expr = syn::parse_quote!((a).add(&b));
         let res = input.to_rule_generation_statements("A.add");
         assert_eq!(expected, res);
     }
