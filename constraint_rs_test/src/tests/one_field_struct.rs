@@ -1,11 +1,16 @@
-use constraint_rs_derive::ConstrainedType;
-
 use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
+use constraint_rs_derive::constrained_mod;
 
-#[derive(ConstrainedType, PartialEq, Eq, Debug)]
-pub struct TestStruct {
-    field1: u32,
+#[constrained_mod]
+mod test_struct {
+    use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
+
+    #[derive(PartialEq, Eq, Debug)]
+    pub struct TestStruct {
+        pub field1: u32,
+    }
 }
+use test_struct::*;
 
 #[test]
 fn test() {
