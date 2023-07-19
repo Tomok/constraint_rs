@@ -348,7 +348,7 @@ impl ParsedStruct {
             let i = &f.ident;
             let t = &f.data_type;
             let t: syn::Expr = syn::parse_quote!(
-                (#i, z3::DatatypeAccessor::Sort(#t::constrained_type(context).z3_sort().clone()))
+                (#i, z3::DatatypeAccessor::Sort(<#t as HasConstrainedType>::constrained_type(context).z3_sort().clone()))
             );
             t
         });
@@ -539,7 +539,7 @@ mod test {
                             vec![(
                                 \"my_u32_field\",
                                 z3::DatatypeAccessor::Sort(
-                                    u32::constrained_type(context).z3_sort().clone()
+                                    <u32 as HasConstrainedType>::constrained_type(context).z3_sort().clone()
                                 )
                             )]
                         )

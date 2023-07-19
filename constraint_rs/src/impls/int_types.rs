@@ -199,7 +199,7 @@ mod test {
         let cfg = z3::Config::new();
         let z3_context = z3::Context::new(&cfg);
         let context = Context::new(&z3_context);
-        let constrained_type = u64::constrained_type(&context);
+        let constrained_type = <u64 as HasConstrainedType>::constrained_type(&context);
         let constrained_value = constrained_type.fresh_value("v");
         //todo: should not be necessary to call z3 directly in the future...
         let solver = z3::Solver::new(&z3_context);
@@ -220,7 +220,7 @@ mod test {
         let cfg = z3::Config::new();
         let z3_context = z3::Context::new(&cfg);
         let context = Context::new(&z3_context);
-        let constrained_type = u64::constrained_type(&context);
+        let constrained_type = <u64 as HasConstrainedType>::constrained_type(&context);
         let const_value_a = constrained_type.fresh_value("a");
         let const_value_b = constrained_type.fresh_value("b");
         //todo: should not be necessary to call z3 directly in the future...
@@ -238,7 +238,7 @@ mod test {
         let cfg = z3::Config::new();
         let z3_context = z3::Context::new(&cfg);
         let context = Context::new(&z3_context);
-        let constrained_type = u8::constrained_type(&context);
+        let constrained_type = <u8 as HasConstrainedType>::constrained_type(&context);
         let constrained_value = constrained_type.fresh_value("v");
         //todo: should not be necessary to call z3 directly in the future...
         let solver = z3::Solver::new(&z3_context);
@@ -259,7 +259,7 @@ mod test {
         let cfg = z3::Config::new();
         let z3_context = z3::Context::new(&cfg);
         let context = Context::new(&z3_context);
-        let constrained_type = i8::constrained_type(&context);
+        let constrained_type = <i8 as HasConstrainedType>::constrained_type(&context);
         let constrained_value = constrained_type.fresh_value("v");
         //todo: should not be necessary to call z3 directly in the future...
         let solver = z3::Solver::new(&z3_context);

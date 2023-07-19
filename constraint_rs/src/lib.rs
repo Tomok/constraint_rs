@@ -190,14 +190,14 @@ mod tests {
                         context.z3_context(),
                         "Empty.add",
                         &[
-                            &u64::constrained_type(context).z3_sort(),
-                            &u64::constrained_type(context).z3_sort(),
+                            <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
+                            <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
                         ],
-                        u64::constrained_type(context).z3_sort(),
+                        <u64 as HasConstrainedType>::constrained_type(context).z3_sort(),
                     );
                 
-                    let a = u64::constrained_type(context).fresh_value("Empty.add#a");
-                    let b = u64::constrained_type(context).fresh_value("Empty.add#b");
+                    let a = <u64 as HasConstrainedType>::constrained_type(context).fresh_value("Empty.add#a");
+                    let b = <u64 as HasConstrainedType>::constrained_type(context).fresh_value("Empty.add#b");
                     add.add_def(
                         &[&a.z3().clone().into(), &b.z3().clone().into()],
                         a.add(&b).z3(),
@@ -258,8 +258,8 @@ mod tests {
             let config = z3::Config::new();
             let ctx = z3::Context::new(&config);
             let context = Context::new(&ctx);
-            let ts1 = Empty::constrained_type(&context);
-            let ts2 = Empty::constrained_type(&context);
+            let ts1 = <Empty as HasConstrainedType>::constrained_type(&context);
+            let ts2 = <Empty as HasConstrainedType>::constrained_type(&context);
             assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
         }
 
@@ -270,8 +270,8 @@ mod tests {
 
         impl<'s, 'ctx> EmptyConstrainedValue<'s, 'ctx> {
             pub fn add(&self, //todo: this requires self, original method did not
-                a: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
-                b: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
+                a: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
+                b: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
             )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
                 let applied_fn = self.typ.add.apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
                 <u64 as HasConstrainedType>::constrained_type(self.typ.context)
@@ -310,7 +310,7 @@ mod tests {
             let config = z3::Config::new();
             let ctx = z3::Context::new(&config);
             let context = Context::new(&ctx);
-            let typ = Empty::constrained_type(&context);
+            let typ = <Empty as HasConstrainedType>::constrained_type(&context);
             let val1 = typ.fresh_value("val1");
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
             assert_eq!(z3::SatResult::Sat, solver.check());
@@ -379,7 +379,7 @@ mod tests {
             fn new(context: &'s Context<'ctx>) -> Self {
                 let fields = vec![(
                     "f",
-                    z3::DatatypeAccessor::Sort(u64::constrained_type(context).z3_sort().clone()),
+                    z3::DatatypeAccessor::Sort(<u64 as HasConstrainedType>::constrained_type(context).z3_sort().clone()),
                 )];
                 let data_type = context.enter_or_get_datatype("S", |c| {
                     z3::DatatypeBuilder::new(c, "S")
@@ -423,7 +423,7 @@ mod tests {
                 &'s self,
                 val: z3::ast::Dynamic<'ctx>,
             ) -> Option<Self::ValueType> {
-                let f = u64::constrained_type(self.context).value_from_z3_dynamic(
+                let f = <u64 as HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic(
                     self.data_type.0.variants[0].accessors[0].apply(&[&val]),
                 )?;
 
@@ -461,8 +461,8 @@ mod tests {
             let config = z3::Config::new();
             let ctx = z3::Context::new(&config);
             let context = Context::new(&ctx);
-            let ts1 = S::constrained_type(&context);
-            let ts2 = S::constrained_type(&context);
+            let ts1 = <S as HasConstrainedType>::constrained_type(&context);
+            let ts2 = <S as HasConstrainedType>::constrained_type(&context);
             assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
         }
 
@@ -538,7 +538,7 @@ mod tests {
             let config = z3::Config::new();
             let ctx = z3::Context::new(&config);
             let context = Context::new(&ctx);
-            let typ = S::constrained_type(&context);
+            let typ = <S as HasConstrainedType>::constrained_type(&context);
             let val1 = typ.fresh_value("val1");
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
             solver.assert(
