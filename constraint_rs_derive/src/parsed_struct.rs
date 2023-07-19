@@ -1,7 +1,7 @@
 use proc_macro2::Span;
 use syn::Token;
 
-use crate::parsed_impl::{ParsedImpl, ParsedMethod};
+use crate::{parsed_impl::{ParsedImpl, ParsedMethod}, to_rule_generation_expr::ToRuleGenerationExpression};
 
 fn constrained_struct_ident(ident: &syn::Ident) -> syn::Ident {
     syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site())
@@ -340,9 +340,15 @@ impl ParsedStruct {
         //    "f",
         //    z3::DatatypeAccessor::Sort(u64::constrained_type(context).z3_sort().clone()),
         //)];
-        if !relevant_implementations.is_empty() {
+        let context_var_expr = syn::parse_quote!(context);
+        let struct_name = self.ident.to_string();
+        /*if !relevant_implementations.is_empty() {
+            dbg!(relevant_implementations);
             todo!("generating functions not yet supported");
-        }
+        }*/
+        //
+        let function_field_entries = relevant_implementations.iter().flat_map(|i| i.methods()).map(|m| m.ident());
+        let function_field_creation_stmts = relevant_implementations.iter().flat_map(|i| i.methods()).map(|m| method_to_rec_func_decl_let_creation_stmt(&context_var_expr, &struct_name, m));
         let str_ident = &self.str_ident;
         let field_entries = self.fields.iter().map(|f| {
             let i = &f.ident;
@@ -354,15 +360,17 @@ impl ParsedStruct {
         });
         let fields: syn::ExprMacro = syn::parse_quote!(vec![#(#field_entries),*]);
         syn::parse_quote!(
-            fn new(context: &'s constraint_rs::Context<'ctx>) -> Self {
+            fn new(#context_var_expr: &'s constraint_rs::Context<'ctx>) -> Self {
                 let data_type = context.enter_or_get_datatype(#str_ident, |c| {
                 z3::DatatypeBuilder::new(c, #str_ident)
                     .variant("", #fields)
                     .finish()
                 });
+                #(#function_field_creation_stmts;)*
                 Self {
                     context,
-                    data_type
+                    data_type,
+                    #(#function_field_entries),*
                 }
             }
         )
@@ -388,6 +396,55 @@ impl ParsedStruct {
                 #(#functions)*
             }
         )
+    }
+}
+
+fn method_to_rec_func_decl_let_creation_stmt(context_var_expr: &syn::Expr, struct_name: &str,m: &ParsedMethod<'_>) -> syn::ExprLet {
+    let ident = m.ident();
+    let name = format!("{}.{}", struct_name, ident);
+    let domain_fields = m.signature().inputs().iter()
+        .map(|i| { 
+            let ctc = i.constrained_type_call(context_var_expr);
+            let r: syn::Expr = syn::parse_quote!{ #ctc.z3_sort() };
+            r
+        });
+    let range_ctc = m.signature().output().constrained_type_call(context_var_expr);
+    let range: syn::Expr = syn::parse_quote!{ #range_ctc.z3_sort() };
+    let arg_creation_let_stmts = m.signature().inputs().iter()
+        .map(|i| {
+            let ctc = i.constrained_type_call(context_var_expr);
+            let arg_name = format!("{}#{}", name, i.ident());
+            let arg_ident = i.ident();
+            let r: syn::ExprLet = syn::parse_quote!{ let #arg_ident = #ctc.fresh_value(#arg_name) };
+            r
+        });
+    let args = m.signature().inputs().iter()
+        .map(|i| {
+            let ident = i.ident();
+            let r: syn::ExprReference = syn::parse_quote!{
+                &#ident.z3().clone().into()
+            };
+            r
+        });
+    let body: syn::Expr = m.block().to_rule_generation_statements(&name);
+    //todo!();
+    syn::parse_quote!{ 
+        let #ident = {
+            let #ident = z3::RecFuncDecl::new(
+                #context_var_expr.z3_context(),
+                #name,
+                &[
+                    #(#domain_fields,)*
+                ],
+                #range,
+            );
+            #(#arg_creation_let_stmts;)*
+            #ident.add_def(
+                &[#(#args),*],
+                #body.z3(),
+            );
+            #ident
+        }
     }
 }
 
@@ -545,7 +602,7 @@ mod test {
                         )
                         .finish()
                 });
-                Self { context, data_type }
+                Self { context, data_type, }
             }";
         let ident = syn::Ident::new("MyType", Span::call_site());
         let parsed = ParsedStruct::new(StructType::Named, ident, one_field());

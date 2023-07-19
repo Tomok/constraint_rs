@@ -4,11 +4,14 @@ use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
 
 #[constrained_mod]
 mod test_struct {
+    use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
+
     #[derive(PartialEq, Eq, Debug)]
     pub struct TestStruct;
 
     impl TestStruct {
-        fn add(a: u64, b: u64) -> u64 {
+        #[allow(dead_code)]
+        pub fn add(a: u64, b: u64) -> u64 {
             a + b
         }
     }
@@ -20,7 +23,7 @@ fn test() {
     let cfg = z3::Config::new();
     let z3_context = z3::Context::new(&cfg);
     let context = constraint_rs::Context::new(&z3_context);
-    let constrained_type = TestStruct::constrained_type(&context);
+    let constrained_type = <TestStruct as HasConstrainedType>::constrained_type(&context);
     let constrained_value = constrained_type.fresh_value("v");
     //todo: should not be necessary to call z3 directly in the future...
     let solver = z3::Solver::new(&z3_context);

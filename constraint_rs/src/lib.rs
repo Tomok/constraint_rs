@@ -333,7 +333,7 @@ mod tests {
             let b = 2u64.constrained(&context.z3_context());
             let ty = EmptyConstrainedType::new(&context);
             let to = ty.fresh_value("test_object");
-            let add_res = to.add(a, b);
+            let add_res = to.add(&a, &b);
             let add_res_expected = 42u64.constrained(&context.z3_context());
 
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
