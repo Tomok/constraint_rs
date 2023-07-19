@@ -1,6 +1,6 @@
 [workspace]
 members = [
     "constraint_rs",
-    "constraint_rs_derive", 
+    "constraint_rs_derive",
     "constraint_rs_test"
 ]
