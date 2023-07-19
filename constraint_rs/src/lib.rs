@@ -185,36 +185,25 @@ mod tests {
                         .variant("", vec![])
                         .finish()
                 });
-                let add = z3::RecFuncDecl::new(
-                    context.z3_context(),
-                    "Empty.add",
-                    &[
-                        &u64::constrained_type(context).z3_sort(),
-                        &u64::constrained_type(context).z3_sort(),
-                    ],
-                    u64::constrained_type(context).z3_sort(),
-                );
-                {
-                    let a: z3::ast::Dynamic<'ctx> = z3::ast::Datatype::fresh_const(
+                let add = { 
+                    let add = z3::RecFuncDecl::new(
                         context.z3_context(),
-                        "Empty.add#a",
-                        &u64::constrained_type(context).z3_sort(),
-                    )
-                    .into();
+                        "Empty.add",
+                        &[
+                            &u64::constrained_type(context).z3_sort(),
+                            &u64::constrained_type(context).z3_sort(),
+                        ],
+                        u64::constrained_type(context).z3_sort(),
+                    );
+                
                     let a = u64::constrained_type(context).fresh_value("Empty.add#a");
                     let b = u64::constrained_type(context).fresh_value("Empty.add#b");
-
-                    let b_const: z3::ast::Dynamic<'ctx> = z3::ast::Datatype::fresh_const(
-                        context.z3_context(),
-                        "Empty.add#b",
-                        &u64::constrained_type(context).z3_sort(),
-                    )
-                    .into();
                     add.add_def(
                         &[&a.z3().clone().into(), &b.z3().clone().into()],
                         a.add(&b).z3(),
                     );
-                }
+                    add
+                };
                 Self {
                     context,
                     data_type,
@@ -280,11 +269,14 @@ mod tests {
         }
 
         impl<'s, 'ctx> EmptyConstrainedValue<'s, 'ctx> {
-            pub fn add(
+            pub fn add(&self, //todo: this requires self, original method did not
                 a: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                 b: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
             )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
-                a.add(&b)
+                let applied_fn = self.typ.add.apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
+                <u64 as HasConstrainedType>::constrained_type(self.typ.context)
+                    .value_from_z3_dynamic(applied_fn)
+                    .unwrap()
             }
         }
 
@@ -339,7 +331,9 @@ mod tests {
             let context = Context::new(&ctx);
             let a = 40u64.constrained(&context.z3_context());
             let b = 2u64.constrained(&context.z3_context());
-            let add_res = EmptyConstrainedValue::add(a, b);
+            let ty = EmptyConstrainedType::new(&context);
+            let to = ty.fresh_value("test_object");
+            let add_res = to.add(a, b);
             let add_res_expected = 42u64.constrained(&context.z3_context());
 
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
