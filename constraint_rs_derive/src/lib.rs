@@ -10,52 +10,58 @@ pub fn constrained_mod(
     attr: proc_macro::TokenStream,
     item: proc_macro::TokenStream,
 ) -> proc_macro::TokenStream {
-    println!("attr: \"{}\"", attr);
     let mut module: syn::ItemMod = syn::parse(item).unwrap();
-    let mut parsed_structs = Vec::new();
-    let mut parsed_impls = Vec::new();
+  
     if let Some((_, ref mut items)) = module.content {
-        for item in items.iter() {
-            match item {
-                syn::Item::Enum(_) => todo!("syn::Item::Enum"),
-                syn::Item::Fn(_) => todo!("syn::Item::Fn"),
-                syn::Item::Impl(i) => {
-                    let parsed = ParsedImpl::try_from(i).unwrap();
-                    parsed_impls.push(parsed);
-                }
-                syn::Item::Struct(s) => {
-                    let parsed = ParsedStruct::from_item_struct(s);
-                    parsed_structs.push(parsed);
-                }
-                syn::Item::Trait(_) => todo!("syn::Item::Trait"),
-                syn::Item::TraitAlias(_) => todo!("syn::Item::TraitAlias"),
-                syn::Item::Type(_) => todo!("syn::Item::Type"),
-                syn::Item::Union(_) => todo!("syn::Item::Union"),
-                _ => todo!("syn::Item::<unknown>"),
-            }
-        }
-        let additional_items_capacity = 6 * parsed_structs.len();
-        let mut additional_items = Vec::with_capacity(additional_items_capacity);
-        for p in parsed_structs {
-            let ident = p.ident();
-            let relevant_impls = parsed_impls
-                .iter()
-                .filter(|i| i.struct_ident() == ident)
-                .collect_vec();
-            additional_items.extend(p.to_syn_items(relevant_impls));
-        }
-        assert_eq!(
-            additional_items_capacity,
-            additional_items.len(),
-            "reserved ram for additional syn items suboptimal"
-        );
+        let additional_items = module_items_to_derived_value_items(&items);
         items.extend(additional_items);
     } else {
         panic!("Module contents need to be in the same file, otherwise they cannot be parsed")
     }
+    dbg!();
     module.into_token_stream().into()
     //let bar: syn::ImplItemMethod = syn::parse_quote!("fn bar() -> bool {false}");
     //bar.into_token_stream().into()
+}
+
+fn module_items_to_derived_value_items(items: &[syn::Item]) -> Vec<syn::Item> {
+    let mut parsed_structs = Vec::new();
+    let mut parsed_impls = Vec::new();
+    for item in items.iter() {
+        match item {
+            syn::Item::Enum(_) => todo!("syn::Item::Enum"),
+            syn::Item::Fn(_) => todo!("syn::Item::Fn"),
+            syn::Item::Impl(i) => {
+                let parsed = ParsedImpl::try_from(i).unwrap();
+                parsed_impls.push(parsed);
+            }
+            syn::Item::Struct(s) => {
+                let parsed = ParsedStruct::from_item_struct(s);
+                parsed_structs.push(parsed);
+            }
+            syn::Item::Trait(_) => todo!("syn::Item::Trait"),
+            syn::Item::TraitAlias(_) => todo!("syn::Item::TraitAlias"),
+            syn::Item::Type(_) => todo!("syn::Item::Type"),
+            syn::Item::Union(_) => todo!("syn::Item::Union"),
+            _ => todo!("syn::Item::<unknown>"),
+        }
+    }
+    let additional_items_capacity = 6 * parsed_structs.len();
+    let mut additional_items = Vec::with_capacity(additional_items_capacity);
+    for p in parsed_structs {
+        let ident = p.ident();
+        let relevant_impls = parsed_impls
+            .iter()
+            .filter(|i| i.struct_ident() == ident)
+            .collect_vec();
+        additional_items.extend(p.to_syn_items(relevant_impls));
+    }
+    assert_eq!(
+        additional_items_capacity,
+        additional_items.len(),
+        "reserved ram for additional syn items suboptimal"
+    );
+    additional_items
 }
 
 #[proc_macro_derive(ConstrainedType)]
