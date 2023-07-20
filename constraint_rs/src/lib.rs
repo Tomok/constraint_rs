@@ -42,6 +42,24 @@ where
     fn z3_sort(&'s self) -> &'s z3::Sort<'ctx>;
 }
 
+#[derive(Debug, Clone)]
+pub struct FieldAccessorIndices {
+    variant: usize,
+    accessor: usize,
+}
+
+impl FieldAccessorIndices {
+    pub fn new(variant: usize, accessor: usize) -> Self {
+        Self { variant, accessor }
+    }
+
+    /// gets the accessor function from the given datatype
+    /// WARNING: Does not check whether datatype belongs to this accessor, if not it might panic or give a different field from that datatype
+    pub fn accessor<'d, 'ctx>(&self, datatype: &'d DataType<'ctx>) -> &'d z3::FuncDecl<'ctx> {
+        &datatype.0.variants[self.variant].accessors[self.accessor]
+    }
+}
+
 /// A constant variable to be defined via constraints
 pub trait ConstrainedValue<'s, 'ctx>
 where
@@ -369,10 +387,15 @@ mod tests {
             }
         }
 
+        struct SConstrainedTypeFieldAccessorIndices {
+            f: FieldAccessorIndices,
+        }
+
         pub struct SConstrainedType<'s, 'ctx> {
             context: &'s Context<'ctx>,
             data_type: DataType<'ctx>,
             func1: z3::RecFuncDecl<'ctx>,
+            field_accessors: SConstrainedTypeFieldAccessorIndices,
         }
 
         impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for SConstrainedType<'s, 'ctx>
@@ -395,6 +418,10 @@ mod tests {
                         .variant("", fields)
                         .finish()
                 });
+
+                let field_accessors = SConstrainedTypeFieldAccessorIndices {
+                    f: FieldAccessorIndices::new(0, 0),
+                };
                 let func1 = z3::RecFuncDecl::new(
                     context.z3_context(),
                     "S.func1",
@@ -408,12 +435,13 @@ mod tests {
                         &data_type.z3_datatype_sort().sort,
                     )
                     .into();
-                    let ast = data_type.0.variants[0].accessors[0].apply(&[&self_const]);
+                    let ast = field_accessors.f.accessor(&data_type).apply(&[&self_const]);
                     func1.add_def(&[&self_const], &ast);
                 }
                 Self {
                     context,
                     data_type,
+                    field_accessors,
                     func1,
                 }
             }
