@@ -1,8 +1,6 @@
 use constraint_rs_derive::constrained_mod;
 
-use constraint_rs::{
-    ConstrainedType, ConstrainedValue, HasConstrainedType, HasSimpleConstrainedType,
-};
+use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
 
 #[constrained_mod]
 mod test_struct {

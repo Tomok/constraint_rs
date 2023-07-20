@@ -142,10 +142,6 @@ impl<'s> ParsedSignature<'s> {
     pub fn output(&self) -> &ParsedReturnType<'s> {
         &self.output
     }
-
-    pub fn ident(&self) -> &syn::Ident {
-        self.ident
-    }
 }
 
 impl<'s> TryFrom<&'s syn::Signature> for ParsedSignature<'s> {
