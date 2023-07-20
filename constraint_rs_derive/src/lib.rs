@@ -47,7 +47,7 @@ fn module_items_to_derived_value_items(items: &[syn::Item]) -> Vec<syn::Item> {
             unknown => todo!("syn::Item::<unknown>: {:#?}", unknown),
         }
     }
-    let additional_items_capacity = 6 * parsed_structs.len();
+    let additional_items_capacity = 7 * parsed_structs.len();
     let mut additional_items = Vec::with_capacity(additional_items_capacity);
     for p in parsed_structs {
         let ident = p.ident();
@@ -57,10 +57,11 @@ fn module_items_to_derived_value_items(items: &[syn::Item]) -> Vec<syn::Item> {
             .collect_vec();
         additional_items.extend(p.to_syn_items(relevant_impls));
     }
-    assert_eq!(
+    assert!(
+        additional_items_capacity >= additional_items.len(),
+        "reserved ram for additional syn items suboptimal (initial capacity: {}, used: {})",
         additional_items_capacity,
-        additional_items.len(),
-        "reserved ram for additional syn items suboptimal"
+        additional_items.len()
     );
     additional_items
 }
