@@ -352,15 +352,15 @@ mod tests {
             let config = z3::Config::new();
             let ctx = z3::Context::new(&config);
             let context = Context::new(&ctx);
-            let a = 40u64.constrained(&context.z3_context());
-            let b = 2u64.constrained(&context.z3_context());
+            let a = 40u64.constrained(context.z3_context());
+            let b = 2u64.constrained(context.z3_context());
             let ty = EmptyConstrainedType::new(&context);
             let to = ty.fresh_value("test_object");
             let add_res = to.add(&a, &b);
-            let add_res_expected = 42u64.constrained(&context.z3_context());
+            let add_res_expected = 42u64.constrained(context.z3_context());
 
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
-            solver.assert(&add_res._eq(&add_res_expected).z3());
+            solver.assert(add_res._eq(&add_res_expected).z3());
             assert_eq!(z3::SatResult::Sat, solver.check());
         }
     }

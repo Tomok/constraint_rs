@@ -14,7 +14,7 @@ pub fn constrained_mod(
     let mut module: syn::ItemMod = syn::parse(item).unwrap();
 
     if let Some((_, ref mut items)) = module.content {
-        let additional_items = module_items_to_derived_value_items(&items);
+        let additional_items = module_items_to_derived_value_items(items);
         items.extend(additional_items);
     } else {
         panic!("Module contents need to be in the same file, otherwise they cannot be parsed")
