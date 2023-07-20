@@ -86,7 +86,7 @@ enum ParsedDeriveInput {
 }
 
 impl ParsedDeriveInput {
-    pub fn to_syn_items(&self) -> [syn::Item; 6] {
+    pub fn to_syn_items(&self) -> Vec<syn::Item> {
         match self {
             ParsedDeriveInput::Struct(s) => s.to_syn_items(vec![]),
             ParsedDeriveInput::Enum() => todo!("ParsedDeriveInput::Enum"),

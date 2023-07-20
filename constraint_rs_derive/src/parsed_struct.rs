@@ -160,16 +160,18 @@ impl ParsedStruct {
         )
     }
 
-    pub fn to_syn_items(&self, relevant_implementations: Vec<&ParsedImpl>) -> [syn::Item; 6] {
-        [
-            self.constrained_struct(&relevant_implementations).into(),
+    pub fn to_syn_items(&self, relevant_implementations: Vec<&ParsedImpl>) -> Vec<syn::Item> {
+        let mut res = Vec::with_capacity(7);
+        res.push(self.constrained_struct(&relevant_implementations).into());
+        res.push(
             self.constrained_struct_impl(&relevant_implementations)
                 .into(),
-            self.struct_impl().into(),
-            self.value_def().into(),
-            self.value_trait_impl().into(),
-            self.value_impl(&relevant_implementations).into(),
-        ]
+        );
+        res.push(self.struct_impl().into());
+        res.push(self.value_def().into());
+        res.push(self.value_trait_impl().into());
+        res.push(self.value_impl(&relevant_implementations).into());
+        res
     }
 
     fn constrained_value_eval_fn(&self) -> syn::ImplItemFn {
