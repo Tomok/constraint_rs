@@ -4,6 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = []
+# Enable this feature to statically link our own build of Z3, rather than
+# dynamically linking to the system's `libz3.so`.
+static-link-z3 = ["z3/static-link-z3"]
 
 [dependencies]
 constraint_rs = { path = "../constraint_rs" }
