@@ -142,10 +142,6 @@ impl<'s> ParsedSignature<'s> {
     pub fn output(&self) -> &ParsedReturnType<'s> {
         &self.output
     }
-
-    pub fn ident(&self) -> &syn::Ident {
-        self.ident
-    }
 }
 
 impl<'s> TryFrom<&'s syn::Signature> for ParsedSignature<'s> {
@@ -185,7 +181,7 @@ pub struct ParsedInputs<'s> {
 }
 impl<'s> ParsedInputs<'s> {
     fn to_constrained_value_impl_func_apply_args(&self) -> syn::ExprArray {
-        //[&a.z3().clone().into(), &b.z3().clone().into()];
+        //[&a.z3().clone(), &b.z3().clone()];
         let params = self
             .iter()
             .map(|p| p.to_constrained_value_impl_func_apply_arg());
@@ -291,7 +287,7 @@ impl<'s> ParsedFnArg<'s> {
     pub fn to_constrained_value_impl_func_args(&self) -> syn::FnArg {
         match self {
             ParsedFnArg::Receiver(r) => r.to_constrained_value_impl_func_args(),
-            ParsedFnArg::Typed(t) => t.to_constrained_value_impl_func_args(),
+            ParsedFnArg::Typed(t) => t.constrained_value_impl_func_args(),
         }
     }
 
@@ -307,8 +303,8 @@ impl<'s> ParsedFnArg<'s> {
             ParsedFnArg::Receiver(_) => {
                 todo!("to_constrained_value_impl_func_apply_arg ParsedFnArg::Receiver")
             }
-            //a.z3().clone().into(),
-            ParsedFnArg::Typed(t) => t.to_constrained_value_impl_func_apply_arg(),
+            //a.z3().clone(),
+            ParsedFnArg::Typed(t) => t.constrained_value_impl_func_apply_arg(),
         }
     }
 
@@ -381,16 +377,16 @@ impl<'s> ParsedPatType<'s> {
         self.ident
     }
 
-    fn to_constrained_value_impl_func_args(&self) -> syn::FnArg {
+    fn constrained_value_impl_func_args(&self) -> syn::FnArg {
         let ty = self.ty.constrained_value_stmt();
         let ident = self.ident;
         syn::parse_quote! { #ident : &#ty }
     }
 
-    fn to_constrained_value_impl_func_apply_arg(&self) -> syn::Expr {
-        //a.z3().clone().into(),
+    fn constrained_value_impl_func_apply_arg(&self) -> syn::Expr {
+        //a.z3().clone(),
         let ident = self.ident;
-        syn::parse_quote! { #ident.z3().clone().into() }
+        syn::parse_quote! { #ident.z3().clone() }
     }
 }
 

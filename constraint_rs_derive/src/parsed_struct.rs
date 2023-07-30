@@ -10,6 +10,12 @@ fn constrained_struct_ident(ident: &syn::Ident) -> syn::Ident {
     syn::Ident::new(&format!("{}ConstrainedType", ident), Span::call_site())
 }
 
+fn constrained_struct_field_accessor_ident(ident: &syn::Ident) -> syn::Ident {
+    syn::Ident::new(
+        &format!("{}ConstrainedTypeFieldAccessorIndices", ident),
+        Span::call_site(),
+    )
+}
 fn constrained_value_ident(ident: &syn::Ident) -> syn::Ident {
     syn::Ident::new(&format!("{}ConstrainedValue", ident), Span::call_site())
 }
@@ -20,12 +26,15 @@ pub struct ParsedStruct {
     fields: Vec<ParsedField>,
     str_ident: String, //not realy necessary as field, but calculated on construction for reusablilty,
     constrained_struct_ident: syn::Ident, //not realy necessary as field, but calculated on construction for reusablilty
+    constrained_struct_field_accessor_ident: syn::Ident, //not realy necessary as field, but calculated on construction for reusablilty
     constrained_value_ident: syn::Ident, //not realy necessary as field, but calculated on construction for reusablilty,
 }
 
 impl ParsedStruct {
     fn new(typ: StructType, ident: syn::Ident, fields: Vec<ParsedField>) -> Self {
         let constrained_struct_ident = constrained_struct_ident(&ident);
+        let constrained_struct_field_accessor_ident =
+            constrained_struct_field_accessor_ident(&ident);
         let constrained_value_ident = constrained_value_ident(&ident);
         let str_ident = ident.to_string();
         Self {
@@ -34,6 +43,7 @@ impl ParsedStruct {
             fields,
             str_ident,
             constrained_struct_ident,
+            constrained_struct_field_accessor_ident,
             constrained_value_ident,
         }
     }
@@ -53,17 +63,60 @@ impl ParsedStruct {
         Self::new(typ, ident, fields)
     }
 
+    fn constrained_type_field_accessor_struct(&self) -> Option<syn::ItemStruct> {
+        //
+        // struct SConstrainedTypeFieldAccessorIndices {
+        //     f: FieldAccessorIndices,
+        // }
+        if self.fields.is_empty() {
+            None
+        } else {
+            Some({
+                let ident = &self.constrained_struct_field_accessor_ident;
+                let entries = self.fields.iter().map(|f| syn::Field {
+                    attrs: vec![],
+                    vis: syn::Visibility::Inherited,
+                    mutability: syn::FieldMutability::None,
+                    ident: Some(syn::Ident::new(&f.ident, Span::call_site())),
+                    colon_token: Some(Token![:](Span::call_site())),
+                    ty: syn::parse_quote!(constraint_rs::FieldAccessorIndices),
+                });
+                syn::parse_quote! {
+                    pub struct #ident {
+                        #(#entries),*
+                    }
+                }
+            })
+        }
+    }
+
     pub fn constrained_struct(&self, relevant_implementations: &[&ParsedImpl]) -> syn::ItemStruct {
         let constrained_struct_ident = &self.constrained_struct_ident;
         let functions = relevant_implementations
             .iter()
             .flat_map(|x| x.methods().iter())
             .map(|m| m.ident());
+        let field_accessor = if self.fields.is_empty() {
+            None
+        } else {
+            let fai_ident = &self.constrained_struct_field_accessor_ident;
+            let field = syn::Field {
+                attrs: vec![],
+                vis: syn::Visibility::Inherited,
+                mutability: syn::FieldMutability::None,
+                ident: Some(syn::Ident::new("field_accessors", Span::call_site())),
+                colon_token: Some(Token![:](Span::call_site())),
+                ty: syn::parse_quote!(#fai_ident),
+            };
+            Some(field)
+        };
+        let field_accessor_iter = field_accessor.iter();
         syn::parse_quote!(
             pub struct #constrained_struct_ident<'s, 'ctx> {
                 context: &'s constraint_rs::Context<'ctx>,
                 data_type: constraint_rs::DataType<'ctx>,
-                #(#functions : z3::RecFuncDecl<'ctx>),*
+                #(#functions : z3::RecFuncDecl<'ctx>,)*
+                #(#field_accessor_iter,)*
             }
         )
     }
@@ -160,16 +213,21 @@ impl ParsedStruct {
         )
     }
 
-    pub fn to_syn_items(&self, relevant_implementations: Vec<&ParsedImpl>) -> [syn::Item; 6] {
-        [
-            self.constrained_struct(&relevant_implementations).into(),
+    pub fn to_syn_items(&self, relevant_implementations: Vec<&ParsedImpl>) -> Vec<syn::Item> {
+        let mut res = Vec::with_capacity(7);
+        if let Some(field_accessor_gen_item) = self.constrained_type_field_accessor_struct() {
+            res.push(field_accessor_gen_item.into());
+        }
+        res.push(self.constrained_struct(&relevant_implementations).into());
+        res.push(
             self.constrained_struct_impl(&relevant_implementations)
                 .into(),
-            self.struct_impl().into(),
-            self.value_def().into(),
-            self.value_trait_impl().into(),
-            self.value_impl(&relevant_implementations).into(),
-        ]
+        );
+        res.push(self.struct_impl().into());
+        res.push(self.value_def().into());
+        res.push(self.value_trait_impl().into());
+        res.push(self.value_impl(&relevant_implementations).into());
+        res
     }
 
     fn constrained_value_eval_fn(&self) -> syn::ImplItemFn {
@@ -271,10 +329,14 @@ impl ParsedStruct {
                     'ctx
                 >>::ValueType
             );
-
+            let vis = if f.public {
+                syn::Visibility::Public(Token![pub](Span::call_site()))
+            } else {
+                syn::Visibility::Inherited
+            };
             syn::Field {
                 attrs: vec![],
-                vis: syn::Visibility::Public(Token![pub](Span::call_site())),
+                vis,
                 mutability: syn::FieldMutability::None,
                 ident: Some(i),
                 colon_token: Some(Token![:](Span::call_site())),
@@ -350,6 +412,34 @@ impl ParsedStruct {
             todo!("generating functions not yet supported");
         }*/
         //
+        let field_accessor_creation_stmt = if self.fields.is_empty() {
+            None
+        } else {
+            Some({
+                let field_initializers = self.fields.iter().enumerate().map(|(index, field)| {
+                    let ident = syn::Ident::new(&field.ident, Span::call_site());
+                    let field_value: syn::FieldValue = syn::parse_quote! {
+                        #ident: constraint_rs::FieldAccessorIndices::new(0, #index)
+                    };
+                    field_value
+                });
+                let ty = &self.constrained_struct_field_accessor_ident;
+                let field_creation_stmt: syn::Stmt = syn::parse_quote! {
+                    let field_accessors = #ty {
+                        #(#field_initializers,)*
+                    };
+                };
+                field_creation_stmt
+            })
+        };
+        let field_accessor_creation_stmt_iter = field_accessor_creation_stmt.iter();
+        let field_accessor_entry = if self.fields.is_empty() {
+            None
+        } else {
+            Some(syn::Ident::new("field_accessors", Span::call_site()))
+        };
+        let field_accessor_entry_iter = field_accessor_entry.iter();
+
         let function_field_entries = relevant_implementations
             .iter()
             .flat_map(|i| i.methods())
@@ -363,7 +453,7 @@ impl ParsedStruct {
             let i = &f.ident;
             let t = &f.data_type;
             let t: syn::Expr = syn::parse_quote!(
-                (#i, z3::DatatypeAccessor::Sort(<#t as HasConstrainedType>::constrained_type(context).z3_sort().clone()))
+                (#i, z3::DatatypeAccessor::Sort(<#t as HasConstrainedType>::constrained_type(context).z3_sort().clone(),),)
             );
             t
         });
@@ -371,15 +461,18 @@ impl ParsedStruct {
         syn::parse_quote!(
             fn new(#context_var_expr: &'s constraint_rs::Context<'ctx>) -> Self {
                 let data_type = context.enter_or_get_datatype(#str_ident, |c| {
-                z3::DatatypeBuilder::new(c, #str_ident)
-                    .variant("", #fields)
-                    .finish()
-                });
+                    z3::DatatypeBuilder::new(c, #str_ident)
+                        .variant("", #fields)
+                        .finish()
+                    }
+                );
+                #(#field_accessor_creation_stmt_iter)*
                 #(#function_field_creation_stmts;)*
                 Self {
                     context,
                     data_type,
-                    #(#function_field_entries),*
+                    #(#field_accessor_entry_iter,)*
+                    #(#function_field_entries,)*
                 }
             }
         )
@@ -435,7 +528,7 @@ fn method_to_rec_func_decl_let_creation_stmt(
     let args = m.signature().inputs().iter().map(|i| {
         let ident = i.ident();
         let r: syn::ExprReference = syn::parse_quote! {
-            &#ident.z3().clone().into()
+            &#ident.z3().clone()
         };
         r
     });
@@ -495,6 +588,7 @@ impl From<&syn::Fields> for StructType {
 struct ParsedField {
     ident: String,
     data_type: syn::Expr, //todo: is there a better type??
+    public: bool,
 }
 
 impl ParsedField {
@@ -511,9 +605,14 @@ impl ParsedField {
                                 .expect("Named field, with None in ident, expected name")
                                 .to_string(),
                             Self::field_for_datatype_type_field(f),
+                            matches!(f.vis, syn::Visibility::Public(_)),
                         )
                     })
-                    .map(|(ident, data_type)| ParsedField { ident, data_type });
+                    .map(|(ident, data_type, public)| ParsedField {
+                        ident,
+                        data_type,
+                        public,
+                    });
                 field_entries.collect()
             }
             syn::Fields::Unnamed(fields) => {
@@ -521,8 +620,18 @@ impl ParsedField {
                     .unnamed
                     .iter()
                     .enumerate()
-                    .map(|(i, f)| (format!("{}", i), Self::field_for_datatype_type_field(f)))
-                    .map(|(ident, data_type)| ParsedField { ident, data_type });
+                    .map(|(i, f)| {
+                        (
+                            format!("{}", i),
+                            Self::field_for_datatype_type_field(f),
+                            matches!(f.vis, syn::Visibility::Public(_)),
+                        )
+                    })
+                    .map(|(ident, data_type, public)| ParsedField {
+                        ident,
+                        data_type,
+                        public,
+                    });
                 field_entries.collect()
             }
             syn::Fields::Unit => vec![],
@@ -567,6 +676,7 @@ mod test {
             data_type: parse_quote! {
                 u32
             },
+            public: true,
             //z3::DatatypeAccessor::Sort(u32::constrained_type(context).z3_sort().clone())
         }]
     }
@@ -609,13 +719,16 @@ mod test {
                             vec![(
                                 \"my_u32_field\",
                                 z3::DatatypeAccessor::Sort(
-                                    <u32 as HasConstrainedType>::constrained_type(context).z3_sort().clone()
-                                )
+                                    <u32 as HasConstrainedType>::constrained_type(context).z3_sort().clone(),
+                                ),
                             )]
                         )
                         .finish()
                 });
-                Self { context, data_type, }
+                let field_accessors = MyTypeConstrainedTypeFieldAccessorIndices { 
+                    my_u32_field: constraint_rs::FieldAccessorIndices::new(0, 0usize), 
+                };
+                Self { context, data_type, field_accessors, }
             }";
         let ident = syn::Ident::new("MyType", Span::call_site());
         let parsed = ParsedStruct::new(StructType::Named, ident, one_field());

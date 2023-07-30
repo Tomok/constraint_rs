@@ -42,6 +42,24 @@ where
     fn z3_sort(&'s self) -> &'s z3::Sort<'ctx>;
 }
 
+#[derive(Debug, Clone)]
+pub struct FieldAccessorIndices {
+    variant: usize,
+    accessor: usize,
+}
+
+impl FieldAccessorIndices {
+    pub fn new(variant: usize, accessor: usize) -> Self {
+        Self { variant, accessor }
+    }
+
+    /// gets the accessor function from the given datatype
+    /// WARNING: Does not check whether datatype belongs to this accessor, if not it might panic or give a different field from that datatype
+    pub fn accessor<'d, 'ctx>(&self, datatype: &'d DataType<'ctx>) -> &'d z3::FuncDecl<'ctx> {
+        &datatype.0.variants[self.variant].accessors[self.accessor]
+    }
+}
+
 /// A constant variable to be defined via constraints
 pub trait ConstrainedValue<'s, 'ctx>
 where
@@ -200,10 +218,7 @@ mod tests {
                         .fresh_value("Empty.add#a");
                     let b = <u64 as HasConstrainedType>::constrained_type(context)
                         .fresh_value("Empty.add#b");
-                    add.add_def(
-                        &[&a.z3().clone().into(), &b.z3().clone().into()],
-                        a.add(&b).z3(),
-                    );
+                    add.add_def(&[&a.z3().clone(), &b.z3().clone()], a.add(&b).z3());
                     add
                 };
                 Self {
@@ -275,10 +290,7 @@ mod tests {
                 a: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                 b: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
             )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
-                let applied_fn = self
-                    .typ
-                    .add
-                    .apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
+                let applied_fn = self.typ.add.apply(&[&a.z3().clone(), &b.z3().clone()]);
                 <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                     .value_from_z3_dynamic(applied_fn)
                     .unwrap()
@@ -334,15 +346,15 @@ mod tests {
             let config = z3::Config::new();
             let ctx = z3::Context::new(&config);
             let context = Context::new(&ctx);
-            let a = 40u64.constrained(&context.z3_context());
-            let b = 2u64.constrained(&context.z3_context());
+            let a = 40u64.constrained(context.z3_context());
+            let b = 2u64.constrained(context.z3_context());
             let ty = EmptyConstrainedType::new(&context);
             let to = ty.fresh_value("test_object");
             let add_res = to.add(&a, &b);
-            let add_res_expected = 42u64.constrained(&context.z3_context());
+            let add_res_expected = 42u64.constrained(context.z3_context());
 
             let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
-            solver.assert(&add_res._eq(&add_res_expected).z3());
+            solver.assert(add_res._eq(&add_res_expected).z3());
             assert_eq!(z3::SatResult::Sat, solver.check());
         }
     }
@@ -369,10 +381,15 @@ mod tests {
             }
         }
 
+        struct SConstrainedTypeFieldAccessorIndices {
+            f: FieldAccessorIndices,
+        }
+
         pub struct SConstrainedType<'s, 'ctx> {
             context: &'s Context<'ctx>,
             data_type: DataType<'ctx>,
             func1: z3::RecFuncDecl<'ctx>,
+            field_accessors: SConstrainedTypeFieldAccessorIndices,
         }
 
         impl<'s, 'ctx> ConstrainedType<'s, 'ctx> for SConstrainedType<'s, 'ctx>
@@ -395,6 +412,10 @@ mod tests {
                         .variant("", fields)
                         .finish()
                 });
+
+                let field_accessors = SConstrainedTypeFieldAccessorIndices {
+                    f: FieldAccessorIndices::new(0, 0),
+                };
                 let func1 = z3::RecFuncDecl::new(
                     context.z3_context(),
                     "S.func1",
@@ -408,12 +429,13 @@ mod tests {
                         &data_type.z3_datatype_sort().sort,
                     )
                     .into();
-                    let ast = data_type.0.variants[0].accessors[0].apply(&[&self_const]);
+                    let ast = field_accessors.f.accessor(&data_type).apply(&[&self_const]);
                     func1.add_def(&[&self_const], &ast);
                 }
                 Self {
                     context,
                     data_type,
+                    field_accessors,
                     func1,
                 }
             }
@@ -536,7 +558,7 @@ mod tests {
                 &self,
             ) -> <<u64 as HasConstrainedType>::ConstrainedType as ConstrainedType>::ValueType
             {
-                let applied_fn = self.typ.func1.apply(&[&self.val.clone().into()]);
+                let applied_fn = self.typ.func1.apply(&[&self.val.clone()]);
                 <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                     .value_from_z3_dynamic(applied_fn)
                     .unwrap()
