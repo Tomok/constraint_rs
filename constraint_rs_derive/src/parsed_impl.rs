@@ -181,7 +181,7 @@ pub struct ParsedInputs<'s> {
 }
 impl<'s> ParsedInputs<'s> {
     fn to_constrained_value_impl_func_apply_args(&self) -> syn::ExprArray {
-        //[&a.z3().clone().into(), &b.z3().clone().into()];
+        //[&a.z3().clone(), &b.z3().clone()];
         let params = self
             .iter()
             .map(|p| p.to_constrained_value_impl_func_apply_arg());
@@ -303,7 +303,7 @@ impl<'s> ParsedFnArg<'s> {
             ParsedFnArg::Receiver(_) => {
                 todo!("to_constrained_value_impl_func_apply_arg ParsedFnArg::Receiver")
             }
-            //a.z3().clone().into(),
+            //a.z3().clone(),
             ParsedFnArg::Typed(t) => t.constrained_value_impl_func_apply_arg(),
         }
     }
@@ -384,9 +384,9 @@ impl<'s> ParsedPatType<'s> {
     }
 
     fn constrained_value_impl_func_apply_arg(&self) -> syn::Expr {
-        //a.z3().clone().into(),
+        //a.z3().clone(),
         let ident = self.ident;
-        syn::parse_quote! { #ident.z3().clone().into() }
+        syn::parse_quote! { #ident.z3().clone() }
     }
 }
 

@@ -218,10 +218,7 @@ mod tests {
                         .fresh_value("Empty.add#a");
                     let b = <u64 as HasConstrainedType>::constrained_type(context)
                         .fresh_value("Empty.add#b");
-                    add.add_def(
-                        &[&a.z3().clone().into(), &b.z3().clone().into()],
-                        a.add(&b).z3(),
-                    );
+                    add.add_def(&[&a.z3().clone(), &b.z3().clone()], a.add(&b).z3());
                     add
                 };
                 Self {
@@ -293,10 +290,7 @@ mod tests {
                 a: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                 b: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
             )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
-                let applied_fn = self
-                    .typ
-                    .add
-                    .apply(&[&a.z3().clone().into(), &b.z3().clone().into()]);
+                let applied_fn = self.typ.add.apply(&[&a.z3().clone(), &b.z3().clone()]);
                 <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                     .value_from_z3_dynamic(applied_fn)
                     .unwrap()
@@ -564,7 +558,7 @@ mod tests {
                 &self,
             ) -> <<u64 as HasConstrainedType>::ConstrainedType as ConstrainedType>::ValueType
             {
-                let applied_fn = self.typ.func1.apply(&[&self.val.clone().into()]);
+                let applied_fn = self.typ.func1.apply(&[&self.val.clone()]);
                 <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                     .value_from_z3_dynamic(applied_fn)
                     .unwrap()

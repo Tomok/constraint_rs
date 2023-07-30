@@ -528,7 +528,7 @@ fn method_to_rec_func_decl_let_creation_stmt(
     let args = m.signature().inputs().iter().map(|i| {
         let ident = i.ident();
         let r: syn::ExprReference = syn::parse_quote! {
-            &#ident.z3().clone().into()
+            &#ident.z3().clone()
         };
         r
     });
