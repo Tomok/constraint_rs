@@ -9,9 +9,9 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
+syn = { version = "2.0.12", default-features = false, features = [] }
 proc-macro2 = "1.0"
 quote = "1.0"
-syn = { version="2.0.12", features = ["derive", "proc-macro", "extra-traits", "full"] }
 thiserror = "1.0.40"
 itertools="0.10"
 
