@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 constraint_rs = { path = "../constraint_rs" }
 constraint_rs_derive = { path = "../constraint_rs_derive" }
-z3 = { version="0.11.2", features=[] }
+z3 = { version = "0.12.1", features = [] }
