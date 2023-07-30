@@ -16,5 +16,4 @@ thiserror = "1.0.40"
 itertools="0.10"
 
 [dev-dependencies]
-constraint_rs = { path="../constraint_rs" }
 prettyplease = "0.2.4"
