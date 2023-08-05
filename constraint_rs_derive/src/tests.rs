@@ -17,7 +17,7 @@ impl syn::fold::Fold for SynHaromizer {
             } else {
                 t
             }
-        };
+        }
 
         syn::ExprMacro {
             attrs: i.attrs,
