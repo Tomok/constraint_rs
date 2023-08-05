@@ -3,8 +3,8 @@
 use crate as constraint_rs;
 
 /// Struct for which the derived types and functions are listed below & used for this test
-include!("../../tests/struct_with_one_field/input.rs");
-include!("../../tests/struct_with_one_field/expected_output.rs");
+include!("../../../tests/struct_with_one_field/input.rs");
+include!("../../../tests/struct_with_one_field/expected_output.rs");
 
 mod test_cases {
     //sub-module to import traits for testcases only not for included code
