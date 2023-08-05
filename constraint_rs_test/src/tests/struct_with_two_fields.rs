@@ -1,6 +1,6 @@
 use constraint_rs_derive::ConstrainedType;
 
-use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
+use constraint_rs::{ConstrainedType, ConstrainedValue};
 
 #[derive(ConstrainedType, PartialEq, Eq, Debug)]
 pub struct TestStruct {

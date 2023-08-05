@@ -1,5 +1,5 @@
-use proc_macro2::{TokenStream, TokenTree};
-use syn::{fold::Fold, punctuated::Punctuated, token::Comma, Expr, Item, ItemFn};
+use proc_macro2::TokenStream;
+use syn::{fold::Fold, Expr};
 
 use super::*;
 
