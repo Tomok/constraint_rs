@@ -9,7 +9,10 @@ edition = "2021"
 proc-macro = true
 
 [dependencies]
-syn = { version = "2.0.12", default-features = false, features = [] }
+syn = { version = "2.0.12", default-features = false, features = [
+    "parsing",
+    "extra-traits",
+] }
 proc-macro2 = "1.0"
 quote = "1.0"
 thiserror = "1.0.40"
@@ -17,3 +20,5 @@ itertools = "0.11"
 
 [dev-dependencies]
 prettyplease = "0.2.4"
+# fold is only necessary in testing
+syn = { version = "2.0.12", default-features = false, features = ["fold"] }

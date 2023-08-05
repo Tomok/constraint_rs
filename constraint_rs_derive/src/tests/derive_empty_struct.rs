@@ -111,8 +111,8 @@ fn derive_empty_struct() {
     assert_eq!(expected.len(), res.len());
     for (e, r) in expected.into_iter().zip(res) {
         if e != r {
-            let expectation_pretty_printed = pretty_print(e.clone());
-            let generated_pretty_printed = pretty_print(r.clone());
+            let expectation_pretty_printed = e.clone().pretty_print();
+            let generated_pretty_printed = r.clone().pretty_print();
 
             if expectation_pretty_printed != generated_pretty_printed {
                 panic!(
