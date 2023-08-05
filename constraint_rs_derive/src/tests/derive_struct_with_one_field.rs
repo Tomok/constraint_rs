@@ -35,7 +35,7 @@ fn derive_struct_with_one_field() {
                                 vec![(
                                     "field",
                                     z3::DatatypeAccessor::Sort(
-                                        <u64 as HasConstrainedType>::constrained_type(context)
+                                        <u64 as constraint_rs::HasConstrainedType>::constrained_type(context)
                                             .z3_sort()
                                             .clone(),
                                     ),
@@ -71,11 +71,12 @@ fn derive_struct_with_one_field() {
                     let f = u64::constrained_type(self.context).value_from_z3_dynamic(
                         self.data_type.z3_datatype_sort().variants[0].accessors[0].apply(&[&val]),
                     )?;*/
-                    let field = <u64 as HasConstrainedType>::constrained_type(self.context)
-                        .value_from_z3_dynamic(
-                            self.data_type.z3_datatype_sort().variants[0].accessors[0usize]
-                                .apply(&[&val]),
-                        )?;
+                    let field =
+                        <u64 as constraint_rs::HasConstrainedType>::constrained_type(self.context)
+                            .value_from_z3_dynamic(
+                                self.data_type.z3_datatype_sort().variants[0].accessors[0usize]
+                                    .apply(&[&val]),
+                            )?;
                     Some(Self::ValueType {
                         val: val.as_datatype()?,
                         typ: self,
@@ -101,7 +102,7 @@ fn derive_struct_with_one_field() {
                 val: z3::ast::Datatype<'ctx>,
                 typ: &'s TestConstrainedType<'s, 'ctx>,
                 field:
-                    <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
+                    <<u64 as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType as constraint_rs::ConstrainedType<
                         's,
                         'ctx,
                     >>::ValueType,

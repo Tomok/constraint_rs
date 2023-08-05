@@ -279,7 +279,7 @@ impl ParsedStruct {
                     self.data_type.z3_datatype_sort().variants[0].accessors[#index].apply(&[&val])
                 );
                 let val_call: syn::ExprMethodCall = syn::parse_quote!(
-                    <#d as HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic( #apply_call )
+                    <#d as constraint_rs::HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic( #apply_call )
                 );
                 let a: syn::Expr = syn::parse_quote!(
                     let #f = #val_call?
@@ -318,13 +318,13 @@ impl ParsedStruct {
             }
             let i = syn::Ident::new(&f.ident, Span::call_site());
             let d = &f.data_type;
-            /*pub f: <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
+            /*pub f: <<u64 as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType as constraint_rs::ConstrainedType<
                     's,
                     'ctx,
                 >>::ValueType, //U64ConstrainedValue<'ctx>,
             */
             let ty: syn::TypePath = syn::parse_quote!(
-                 <<#d as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
+                 <<#d as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType as constraint_rs::ConstrainedType<
                     's,
                     'ctx
                 >>::ValueType
@@ -453,7 +453,7 @@ impl ParsedStruct {
             let i = &f.ident;
             let t = &f.data_type;
             let t: syn::Expr = syn::parse_quote!(
-                (#i, z3::DatatypeAccessor::Sort(<#t as HasConstrainedType>::constrained_type(context).z3_sort().clone(),),)
+                (#i, z3::DatatypeAccessor::Sort(<#t as constraint_rs::HasConstrainedType>::constrained_type(context).z3_sort().clone(),),)
             );
             t
         });
@@ -719,7 +719,7 @@ mod test {
                             vec![(
                                 \"my_u32_field\",
                                 z3::DatatypeAccessor::Sort(
-                                    <u32 as HasConstrainedType>::constrained_type(context).z3_sort().clone(),
+                                    <u32 as constraint_rs::HasConstrainedType>::constrained_type(context).z3_sort().clone(),
                                 ),
                             )]
                         )
@@ -745,7 +745,7 @@ mod test {
         let expected = "{
             val: z3::ast::Datatype<'ctx>,
             typ: &'s SConstrainedType<'s, 'ctx>,
-            pub my_u32_field: << u32 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType
+            pub my_u32_field: << u32 as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType as constraint_rs::ConstrainedType<'s, 'ctx>>::ValueType
         }";
         let ident = syn::Ident::new("S", Span::call_site());
         let parsed = ParsedStruct::new(StructType::Named, ident, one_field());
@@ -762,7 +762,7 @@ mod test {
         let expected = "
             fn value_from_z3_dynamic(&'s self, val: z3::ast::Dynamic<'ctx>) ->Option<Self::ValueType>
             {
-                let my_u32_field =<u32 as HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic(
+                let my_u32_field =<u32 as constraint_rs::HasConstrainedType>::constrained_type(self.context).value_from_z3_dynamic(
                     self.data_type.z3_datatype_sort().variants [0].accessors [0usize].apply(& [& val]))?;
                 Some(Self::ValueType {
                     val: val.as_datatype()?,

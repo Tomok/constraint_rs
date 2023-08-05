@@ -13,7 +13,8 @@ fn test() {
     let cfg = z3::Config::new();
     let z3_context = z3::Context::new(&cfg);
     let context = constraint_rs::Context::new(&z3_context);
-    let constrained_type = <TestStruct as HasConstrainedType>::constrained_type(&context);
+    let constrained_type =
+        <TestStruct as constraint_rs::HasConstrainedType>::constrained_type(&context);
     let constrained_value = constrained_type.fresh_value("v");
     let solver = z3::Solver::new(&z3_context);
 
@@ -43,8 +44,10 @@ fn create_datatype_twice() {
     let cfg = z3::Config::new();
     let z3_context = z3::Context::new(&cfg);
     let context = constraint_rs::Context::new(&z3_context);
-    let constrained_type1 = <TestStruct as HasConstrainedType>::constrained_type(&context);
-    let constrained_type2 = <TestStruct as HasConstrainedType>::constrained_type(&context);
+    let constrained_type1 =
+        <TestStruct as constraint_rs::HasConstrainedType>::constrained_type(&context);
+    let constrained_type2 =
+        <TestStruct as constraint_rs::HasConstrainedType>::constrained_type(&context);
     let constrained_value1 = constrained_type1.fresh_value("v1");
     let constrained_value2 = constrained_type2.fresh_value("v2");
     let solver = z3::Solver::new(&z3_context);
