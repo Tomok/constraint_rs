@@ -232,19 +232,19 @@ pub enum ParsedReturnType<'s> {
 
 impl<'s> ParsedReturnType<'s> {
     pub fn to_constrained_type_value_stmt(&self) -> syn::Type {
-        // <<u64 as HasConstrainedType>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType
+        // <<u64 as constraint_rs::HasConstrainedType>::ConstrainedType as constraint_rs::ConstrainedType<'s, 'ctx>>::ValueType
         let constrained_type_stmt = self.to_constrained_type_stmt();
         syn::parse_quote! {
-            <#constrained_type_stmt as ConstrainedType<'s, 'ctx>>::ValueType
+            <#constrained_type_stmt as constraint_rs::ConstrainedType<'s, 'ctx>>::ValueType
         }
     }
 
     pub fn to_constrained_type_stmt(&self) -> syn::Type {
-        // <u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType
+        // <u64 as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType
         match self {
             ParsedReturnType::Default => todo!("ParsedReturnType::Default"), //syn::parse_quote!{()},
             ParsedReturnType::Type(t) => syn::parse_quote! {
-                <#t as HasConstrainedType<'s, 'ctx>>::ConstrainedType
+                <#t as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType
             },
         }
     }
@@ -253,7 +253,7 @@ impl<'s> ParsedReturnType<'s> {
         match self {
             ParsedReturnType::Default => todo!("ParsedReturnType::Default"),
             ParsedReturnType::Type(t) => syn::parse_quote! {
-                <#t as HasConstrainedType>::constrained_type(#context_var_ident)
+                <#t as constraint_rs::HasConstrainedType>::constrained_type(#context_var_ident)
             },
         }
     }
@@ -415,21 +415,21 @@ impl<'s> ParsedType<'s> {
     fn constrained_type_stmt(&self) -> syn::TypePath {
         match self {
             ParsedType::Path(p) => syn::parse_quote! {
-                <#p as HasConstrainedType<'s, 'ctx>>::ConstrainedType
+                <#p as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType
             },
         }
     }
 
     fn constrained_value_stmt(&self) -> syn::TypePath {
-        //<<<u64> as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType
+        //<<<u64> as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType as constraint_rs::ConstrainedType<'s, 'ctx>>::ValueType
         let ty = self.constrained_type_stmt();
-        syn::parse_quote! {<#ty as ConstrainedType<'s, 'ctx>>::ValueType}
+        syn::parse_quote! {<#ty as constraint_rs::ConstrainedType<'s, 'ctx>>::ValueType}
     }
 
     fn constrained_type_call(&self, context_var_expr: &syn::Expr) -> syn::ExprCall {
         match self {
             ParsedType::Path(p) => {
-                syn::parse_quote! {  <#p as HasConstrainedType>::constrained_type(#context_var_expr) }
+                syn::parse_quote! {  <#p as constraint_rs::HasConstrainedType>::constrained_type(#context_var_expr) }
             }
         }
     }

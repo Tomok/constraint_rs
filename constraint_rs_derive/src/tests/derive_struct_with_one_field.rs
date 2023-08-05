@@ -35,7 +35,7 @@ fn derive_struct_with_one_field() {
                                 vec![(
                                     "field",
                                     z3::DatatypeAccessor::Sort(
-                                        <u64 as HasConstrainedType>::constrained_type(context)
+                                        <u64 as constraint_rs::HasConstrainedType>::constrained_type(context)
                                             .z3_sort()
                                             .clone(),
                                     ),
@@ -71,11 +71,12 @@ fn derive_struct_with_one_field() {
                     let f = u64::constrained_type(self.context).value_from_z3_dynamic(
                         self.data_type.z3_datatype_sort().variants[0].accessors[0].apply(&[&val]),
                     )?;*/
-                    let field = <u64 as HasConstrainedType>::constrained_type(self.context)
-                        .value_from_z3_dynamic(
-                            self.data_type.z3_datatype_sort().variants[0].accessors[0usize]
-                                .apply(&[&val]),
-                        )?;
+                    let field =
+                        <u64 as constraint_rs::HasConstrainedType>::constrained_type(self.context)
+                            .value_from_z3_dynamic(
+                                self.data_type.z3_datatype_sort().variants[0].accessors[0usize]
+                                    .apply(&[&val]),
+                            )?;
                     Some(Self::ValueType {
                         val: val.as_datatype()?,
                         typ: self,
@@ -101,7 +102,7 @@ fn derive_struct_with_one_field() {
                 val: z3::ast::Datatype<'ctx>,
                 typ: &'s TestConstrainedType<'s, 'ctx>,
                 field:
-                    <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<
+                    <<u64 as constraint_rs::HasConstrainedType<'s, 'ctx>>::ConstrainedType as constraint_rs::ConstrainedType<
                         's,
                         'ctx,
                     >>::ValueType,
@@ -125,7 +126,7 @@ fn derive_struct_with_one_field() {
                     solver: &constraint_rs::Solver<'ctx>,
                     value: &Self::ValueType,
                 ) {
-                    let field = self.field.assign_value(solver, &value.field);
+                    self.field.assign_value(solver, &value.field);
                 }
 
                 fn _eq(&'s self, other: &'s Self) -> constraint_rs::impls::BoolConstrainedValue {
@@ -146,8 +147,8 @@ fn derive_struct_with_one_field() {
     assert_eq!(expected.len(), res.len());
     for (e, r) in expected.into_iter().zip(res) {
         if e != r {
-            let expectation_pretty_printed = pretty_print(e.clone());
-            let generated_pretty_printed = pretty_print(r.clone());
+            let expectation_pretty_printed = e.clone().pretty_print();
+            let generated_pretty_printed = r.clone().pretty_print();
 
             if expectation_pretty_printed != generated_pretty_printed {
                 panic!(
