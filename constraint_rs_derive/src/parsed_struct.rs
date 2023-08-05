@@ -389,8 +389,7 @@ impl ParsedStruct {
             let i = syn::Ident::new(&f.ident, Span::call_site());
             let eval_call: syn::ExprMethodCall =
                 syn::parse_quote!(self.#i.assign_value(solver, &value.#i));
-            let t: syn::Expr = syn::parse_quote!(let #i = #eval_call);
-            t
+            eval_call
         });
 
         syn::parse_quote!(

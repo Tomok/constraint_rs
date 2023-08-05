@@ -126,7 +126,7 @@ fn derive_struct_with_one_field() {
                     solver: &constraint_rs::Solver<'ctx>,
                     value: &Self::ValueType,
                 ) {
-                    let field = self.field.assign_value(solver, &value.field);
+                    self.field.assign_value(solver, &value.field);
                 }
 
                 fn _eq(&'s self, other: &'s Self) -> constraint_rs::impls::BoolConstrainedValue {
