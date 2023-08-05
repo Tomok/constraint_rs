@@ -49,10 +49,7 @@ fn derive_module_with_empty_struct_and_one_func() {
                             .fresh_value("Test.add#a");
                         let b = <u64 as HasConstrainedType>::constrained_type(context)
                             .fresh_value("Test.add#b");
-                        add.add_def(
-                            &[&a.z3().clone(), &b.z3().clone()],
-                            (a).add(&b).z3(),
-                        );
+                        add.add_def(&[&a.z3().clone(), &b.z3().clone()], (a).add(&b).z3());
                         add
                     };
                     Self {
@@ -145,10 +142,7 @@ fn derive_module_with_empty_struct_and_one_func() {
                 a: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                 b: &<<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType,
                 )-> <<u64 as HasConstrainedType<'s, 'ctx>>::ConstrainedType as ConstrainedType<'s, 'ctx>>::ValueType{
-                    let applied_fn = self
-                        .typ
-                        .add
-                        .apply(&[&a.z3().clone(), &b.z3().clone()]);
+                    let applied_fn = self.typ.add.apply(&[&a.z3().clone(), &b.z3().clone()]);
                     <u64 as HasConstrainedType>::constrained_type(self.typ.context)
                         .value_from_z3_dynamic(applied_fn)
                         .unwrap()
