@@ -4,8 +4,8 @@ pub struct S {
 }
 
 impl S {
-    /*/// example for a function to be derived
+    /// example for a function to be derived
     pub fn func1(&self) -> u64 {
         self.f
-    }*/
+    }
 }

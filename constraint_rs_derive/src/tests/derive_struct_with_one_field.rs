@@ -46,11 +46,12 @@ fn derive_struct_with_one_field() {
                     let field_accessors = TestConstrainedTypeFieldAccessorIndices {
                         field: constraint_rs::FieldAccessorIndices::new(0, 0usize),
                     };
-                    Self {
+                    let res = Self {
                         context,
                         data_type,
                         field_accessors,
-                    }
+                    };
+                    res
                 }
 
                 fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {

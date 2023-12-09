@@ -1,3 +1,6 @@
+use proc_macro2::Span;
+use syn::Token;
+
 use crate::parsed_impl::ParsedBlock;
 
 pub trait ToRuleGenerationExpression {
@@ -52,7 +55,7 @@ impl ToRuleGenerationExpression for syn::Expr {
             syn::Expr::Closure(_) => todo!("syn::Expr::Closure"),
             syn::Expr::Const(_) => todo!("syn::Expr::Const"),
             syn::Expr::Continue(_) => todo!("syn::Expr::Continue"),
-            syn::Expr::Field(_) => todo!("syn::Expr::Field"),
+            syn::Expr::Field(f) => f.to_rule_generation_statements(context_variable_name_prefix),
             syn::Expr::ForLoop(_) => todo!("syn::Expr::ForLoop"),
             syn::Expr::Group(_) => todo!("syn::Expr::Group"),
             syn::Expr::If(_) => todo!("syn::Expr::If"),
@@ -123,13 +126,44 @@ impl ToRuleGenerationExpression for syn::ExprBinary {
             syn::BinOp::ShrAssign(_) => todo!("syn::BinOp::ShrAssign"),
             _ => todo!("syn::BinOp::<unknown>"),
         };
-        syn::Expr::MethodCall(call)
+        let call = Box::new(syn::Expr::MethodCall(call));
+        syn::Expr::Reference(syn::ExprReference {
+            attrs: vec![],
+            and_token: Token![&](Span::call_site()),
+            mutability: None,
+            expr: call,
+        })
     }
 }
 
 impl ToRuleGenerationExpression for syn::ExprPath {
     fn to_rule_generation_statements(&self, _context_variable_name_prefix: &str) -> syn::Expr {
         syn::Expr::Path(self.clone())
+    }
+}
+
+impl ToRuleGenerationExpression for syn::ExprField {
+    fn to_rule_generation_statements(&self, _context_variable_name_prefix: &str) -> syn::Expr {
+        if !self.attrs.is_empty() {
+            todo!("Attributes for syn::ExprField")
+        }
+        if let &syn::Expr::Path(expr_path) = &self.base.as_ref() {
+            if expr_path.path.leading_colon.is_some() || !expr_path.path.is_ident("self") {
+                todo!("None self path in syn::ExprPath in syn::ExprField.base");
+            }
+            if !expr_path.attrs.is_empty() {
+                todo!("Attributes from syn::ExprPath in syn::ExprField.base");
+            }
+            if expr_path.qself.is_some() {
+                todo!("QSelf from syn::ExprPath in syn::ExprField.base");
+            }
+            let member = &self.member;
+            return syn::parse_quote! {
+                &self_dummy.#member
+            };
+        }
+
+        todo!("syn::ExprField for not self");
     }
 }
 
@@ -140,7 +174,7 @@ mod test {
     #[test]
     fn test_simple_add_block() {
         let input: syn::Block = syn::parse_quote!({ a + b });
-        let expected: syn::Expr = syn::parse_quote!((a).add(&b));
+        let expected: syn::Expr = syn::parse_quote!(&(a).add(&b));
         let res = input.to_rule_generation_statements("A.add");
         assert_eq!(expected, res);
     }

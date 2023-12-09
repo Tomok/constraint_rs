@@ -216,7 +216,7 @@ mod tests {
                         .fresh_value("Empty.add#a");
                     let b = <u64 as HasConstrainedType>::constrained_type(context)
                         .fresh_value("Empty.add#b");
-                    add.add_def(&[&a.z3().clone(), &b.z3().clone()], a.add(&b).z3());
+                    add.add_def(&[a.z3(), b.z3()], a.add(&b).z3());
                     add
                 };
                 Self {

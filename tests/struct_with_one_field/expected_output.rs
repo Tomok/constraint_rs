@@ -5,7 +5,7 @@ pub struct SConstrainedTypeFieldAccessorIndices {
 pub struct SConstrainedType<'s, 'ctx> {
     context: &'s constraint_rs::Context<'ctx>,
     data_type: constraint_rs::DataType<'ctx>,
-    //func1: z3::RecFuncDecl<'ctx>,
+    func1: z3::RecFuncDecl<'ctx>,
     field_accessors: SConstrainedTypeFieldAccessorIndices,
 }
 
@@ -35,28 +35,53 @@ where
         let field_accessors = SConstrainedTypeFieldAccessorIndices {
             f: constraint_rs::FieldAccessorIndices::new(0, 0usize),
         };
-        /*let func1 = z3::RecFuncDecl::new(
-            context.z3_context(),
-            "S.func1",
-            &[&data_type.z3_datatype_sort().sort],
-            u64::constrained_type(context).z3_sort(),
-        );
-        {
+        /*
+        let func1 = {
+            let func1 = z3::RecFuncDecl::new(
+                context.z3_context(),
+                "S.func1",
+                &[&data_type.z3_datatype_sort().sort],
+                <u64 as constraint_rs::HasConstrainedType>::constrained_type(context).z3_sort(),
+            );
             let self_const: z3::ast::Dynamic<'ctx> = z3::ast::Datatype::fresh_const(
                 context.z3_context(),
-                "S1.func1#self",
+                "S.func1#self",
                 &data_type.z3_datatype_sort().sort,
             )
             .into();
-            let ast = field_accessors.f.accessor(&data_type).apply(&[&self_const]);
-            func1.add_def(&[&self_const], &ast);
-        }*/
-        Self {
+            let self_dummy = {
+                z3::ast::DataType::fresh_const(
+                    context.z3_context(),
+                    "S.func1#self",
+                    &data_type.z3_datatype_sort().sort,
+                )
+            }
+            func1.add_def(
+                &[&self_const],
+                &field_accessors.f.accessor(&data_type).apply(&[&self_const]),
+            );
+            func1
+        };*/
+        let func1 = z3::RecFuncDecl::new(
+            context.z3_context(),
+            "S.func1",
+            &[&data_type.z3_datatype_sort().sort],
+            <u64 as constraint_rs::HasConstrainedType>::constrained_type(context).z3_sort(),
+        );
+        let res = Self {
             context,
             data_type,
             field_accessors,
-            //func1,
+            func1,
+        };
+        {
+            let self_dummy = res.fresh_value("S.func1#self");
+            res.func1.add_def(
+                &[constraint_rs::ConstrainedValue::z3(&self_dummy)],
+                constraint_rs::ConstrainedValue::z3(&self_dummy.f),
+            );
         }
+        res
     }
 
     fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {
@@ -132,13 +157,17 @@ impl<'s, 'ctx> SConstrainedValue<'s, 'ctx>
 where
     'ctx: 's,
 {
-    /*
     pub fn func1(
-        &self,
+        &'s self,
     ) -> <<u64 as constraint_rs::HasConstrainedType>::ConstrainedType as constraint_rs::ConstrainedType>::ValueType{
-        let applied_fn = self.typ.func1.apply(&[&self.val.clone()]);
-        <u64 as constraint_rs::HasConstrainedType>::constrained_type(self.typ.context)
-            .value_from_z3_dynamic(applied_fn)
-            .unwrap()
-    }*/
+        let applied_fn = self
+            .typ
+            .func1
+            .apply(&[constraint_rs::ConstrainedValue::z3(self)]);
+        constraint_rs::ConstrainedType::value_from_z3_dynamic(
+            &<u64 as constraint_rs::HasConstrainedType>::constrained_type(self.typ.context),
+            applied_fn,
+        )
+        .unwrap()
+    }
 }

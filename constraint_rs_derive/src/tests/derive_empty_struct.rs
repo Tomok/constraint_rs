@@ -25,7 +25,8 @@ fn derive_empty_struct() {
                             .variant("", vec![])
                             .finish()
                     });
-                    Self { context, data_type }
+                    let res = Self { context, data_type };
+                    res
                 }
 
                 fn fresh_value(&'s self, name_prefix: &str) -> Self::ValueType {

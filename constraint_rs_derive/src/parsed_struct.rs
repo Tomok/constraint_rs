@@ -447,6 +447,11 @@ impl ParsedStruct {
             .iter()
             .flat_map(|i| i.methods())
             .map(|m| method_to_rec_func_decl_let_creation_stmt(&context_var_expr, &struct_name, m));
+        let function_field_definition_blocks = relevant_implementations
+            .iter()
+            .flat_map(|i| i.methods())
+            .map(|m| method_to_rec_func_declaration_stmt(&context_var_expr, &struct_name, m));
+
         let str_ident = &self.str_ident;
         let field_entries = self.fields.iter().map(|f| {
             let i = &f.ident;
@@ -467,12 +472,14 @@ impl ParsedStruct {
                 );
                 #(#field_accessor_creation_stmt_iter)*
                 #(#function_field_creation_stmts;)*
-                Self {
+                let res = Self {
                     context,
                     data_type,
                     #(#field_accessor_entry_iter,)*
                     #(#function_field_entries,)*
-                }
+                };
+                #(#function_field_definition_blocks)*
+                res
             }
         )
     }
@@ -499,7 +506,6 @@ impl ParsedStruct {
         )
     }
 }
-
 fn method_to_rec_func_decl_let_creation_stmt(
     context_var_expr: &syn::Expr,
     struct_name: &str,
@@ -507,50 +513,68 @@ fn method_to_rec_func_decl_let_creation_stmt(
 ) -> syn::ExprLet {
     let ident = m.ident();
     let name = format!("{}.{}", struct_name, ident);
-    let domain_fields = m.signature().inputs().iter().map(|i| {
-        let ctc = i.constrained_type_call(context_var_expr);
-        let r: syn::Expr = syn::parse_quote! { #ctc.z3_sort() };
-        r
-    });
+    let domain_fields = m
+        .signature()
+        .inputs()
+        .iter()
+        .map(|i| i.to_domain_field(context_var_expr));
     let range_ctc = m
         .signature()
         .output()
         .constrained_type_call(context_var_expr);
     let range: syn::Expr = syn::parse_quote! { #range_ctc.z3_sort() };
-    let arg_creation_let_stmts = m.signature().inputs().iter().map(|i| {
-        let ctc = i.constrained_type_call(context_var_expr);
-        let arg_name = format!("{}#{}", name, i.ident());
-        let arg_ident = i.ident();
-        let r: syn::ExprLet = syn::parse_quote! { let #arg_ident = #ctc.fresh_value(#arg_name) };
-        r
-    });
-    let args = m.signature().inputs().iter().map(|i| {
-        let ident = i.ident();
-        let r: syn::ExprReference = syn::parse_quote! {
-            &#ident.z3().clone()
-        };
-        r
-    });
-    let body: syn::Expr = m.block().to_rule_generation_statements(&name);
-    //todo!();
-    syn::parse_quote! {
-        let #ident = {
-            let #ident = z3::RecFuncDecl::new(
-                #context_var_expr.z3_context(),
-                #name,
-                &[
-                    #(#domain_fields,)*
-                ],
-                #range,
-            );
-            #(#arg_creation_let_stmts;)*
-            #ident.add_def(
-                &[#(#args),*],
-                #body.z3(),
-            );
-            #ident
-        }
+    let call: syn::ExprCall = syn::parse_quote! {
+           z3::RecFuncDecl::new(
+               #context_var_expr.z3_context(),
+               #name,
+               &[
+                   #(#domain_fields,)*
+               ],
+               #range,
+           )
+    };
+    syn::ExprLet {
+        attrs: vec![],
+        let_token: Token![let](Span::call_site()),
+        pat: Box::new(syn::Pat::Ident(syn::PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: None,
+            ident: ident.clone(),
+            subpat: None,
+        })),
+        eq_token: Token![=](Span::call_site()),
+        expr: Box::new(syn::Expr::Call(call)),
     }
+}
+
+fn method_to_rec_func_declaration_stmt(
+    context_var_expr: &syn::Expr,
+    struct_name: &str,
+    m: &ParsedMethod<'_>,
+) -> syn::Block {
+    let ident = m.ident();
+    let name = format!("{}.{}", struct_name, ident);
+    //TODO ensure these do not conflicht with a local variable names
+    let self_dummy_ident = syn::Ident::new("self_dummy", Span::call_site());
+    let res_ident = syn::Ident::new("res", Span::call_site());
+    let arg_creation_let_stmts = m.signature().inputs().iter().map(|i| {
+        i.fn_arg_creation_statement(&name, &self_dummy_ident, &res_ident, context_var_expr)
+    });
+    let args = m.signature().inputs().iter().map(|i| -> syn::ExprCall {
+        let v = i.gen_add_def_arg(&self_dummy_ident);
+        syn::parse_quote! {constraint_rs::ConstrainedValue::z3(#v)}
+    });
+    let body: syn::Expr = m.block().to_rule_generation_statements(&name); //todo: pass self_dummy_ident
+    syn::parse_quote!(
+        {
+            #(#arg_creation_let_stmts;)*
+            #res_ident.#ident.add_def(
+                &[#(#args),*],
+                constraint_rs::ConstrainedValue::z3(#body),
+            );
+        }
+    )
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -727,7 +751,8 @@ mod test {
                 let field_accessors = MyTypeConstrainedTypeFieldAccessorIndices { 
                     my_u32_field: constraint_rs::FieldAccessorIndices::new(0, 0usize), 
                 };
-                Self { context, data_type, field_accessors, }
+                let res = Self { context, data_type, field_accessors, };
+                res
             }";
         let ident = syn::Ident::new("MyType", Span::call_site());
         let parsed = ParsedStruct::new(StructType::Named, ident, one_field());
