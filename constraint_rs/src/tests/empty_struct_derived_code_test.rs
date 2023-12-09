@@ -9,8 +9,13 @@ include!("../../../tests/empty_struct/expected_output.rs");
 mod test_cases {
     //sub-module to import traits for testcases only not for included code
 
+    use std::ptr;
+    use z3::ast::Ast;
+
     use super::*;
-    use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
+    use constraint_rs::{
+        ConstrainedType, ConstrainedValue, HasConstrainedType, HasSimpleConstrainedType,
+    };
 
     #[test]
     fn test() {
@@ -54,5 +59,61 @@ mod test_cases {
         assert_eq!(z3::SatResult::Sat, solver.check());
         let model = solver.get_model().unwrap();
         assert_eq!(3, v_unknown.eval(&model).unwrap());
+    }
+
+    #[test]
+    fn create_constrained_datatypes() {
+        let config = z3::Config::new();
+        let ctx = z3::Context::new(&config);
+        let context = constraint_rs::Context::new(&ctx);
+        let ts1 = TestStructConstrainedType::new(&context);
+        let ts2 = TestStructConstrainedType::new(&context);
+        assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
+    }
+
+    #[test]
+    fn has_constrained_datatype() {
+        let config = z3::Config::new();
+        let ctx = z3::Context::new(&config);
+        let context = constraint_rs::Context::new(&ctx);
+        let ts1 = <TestStruct as HasConstrainedType>::constrained_type(&context);
+        let ts2 = <TestStruct as HasConstrainedType>::constrained_type(&context);
+        assert!(ptr::eq(ts1.data_type.0.as_ref(), ts2.data_type.0.as_ref()));
+    }
+
+    #[test]
+    fn constrained_value() {
+        let config = z3::Config::new();
+        let ctx = z3::Context::new(&config);
+        let context = constraint_rs::Context::new(&ctx);
+        let typ = <TestStruct as HasConstrainedType>::constrained_type(&context);
+        let val1 = typ.fresh_value("val1");
+        let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
+        assert_eq!(z3::SatResult::Sat, solver.check());
+        let model = solver.get_model().unwrap();
+        assert_eq!(Some(TestStruct), val1.eval(&model));
+
+        //assert something impossible (TestStruct type != empty type) to se solver failing
+        let val2 = typ.fresh_value("val2");
+        solver.assert(&val2.val._safe_eq(&val1.val).expect("Type missmatch").not());
+        assert_eq!(z3::SatResult::Unsat, solver.check());
+        assert!(solver.get_model().is_none());
+    }
+
+    #[test]
+    fn test_constrained_value_add() {
+        let config = z3::Config::new();
+        let ctx = z3::Context::new(&config);
+        let context = constraint_rs::Context::new(&ctx);
+        let a = 40u64.constrained(context.z3_context());
+        let b = 2u64.constrained(context.z3_context());
+        let ty = TestStructConstrainedType::new(&context);
+        let to = ty.fresh_value("test_object");
+        let add_res = to.add(&a, &b);
+        let add_res_expected = 42u64.constrained(context.z3_context());
+
+        let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
+        solver.assert(add_res._eq(&add_res_expected).z3());
+        assert_eq!(z3::SatResult::Sat, solver.check());
     }
 }
