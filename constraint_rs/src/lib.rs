@@ -359,4 +359,5 @@ mod tests {
 
     #[allow(unused)]
     mod struct_derived_code_test;
+    mod empty_struct_derived_code_test;
 }
