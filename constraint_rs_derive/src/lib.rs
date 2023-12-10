@@ -4,7 +4,7 @@ use itertools::Itertools;
 use quote::ToTokens;
 
 mod error;
-mod to_rule_generation_expr;
+mod to_rule_generation;
 
 #[proc_macro_attribute]
 pub fn constrained_mod(

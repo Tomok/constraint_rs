@@ -3,7 +3,7 @@ use syn::Token;
 
 use crate::{
     parsed_impl::{ParsedImpl, ParsedMethod},
-    to_rule_generation_expr::ToRuleGeneration,
+    to_rule_generation::ToRuleGeneration,
 };
 
 fn constrained_struct_ident(ident: &syn::Ident) -> syn::Ident {
