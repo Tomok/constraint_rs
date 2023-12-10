@@ -1,3 +1,5 @@
+use proc_macro2::Span;
+
 use crate::parsed_impl::ParsedBlock;
 
 pub trait ToRuleGeneration {
@@ -211,38 +213,38 @@ impl ToRuleGeneration for syn::ExprBinary {
     fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         let left = self.left.to_rule_generation(context_variable_name_prefix);
         let right = self.right.to_rule_generation(context_variable_name_prefix);
-        let call: syn::ExprMethodCall = match self.op {
-            syn::BinOp::Add(_) => syn::parse_quote! {#left.add(&#right)},
-            syn::BinOp::Sub(_) => todo!("syn::BinOp::Sub"),
-            syn::BinOp::Mul(_) => todo!("syn::BinOp::Mul"),
-            syn::BinOp::Div(_) => todo!("syn::BinOp::Div"),
-            syn::BinOp::Rem(_) => todo!("syn::BinOp::Rem"),
-            syn::BinOp::And(_) => todo!("syn::BinOp::And"),
-            syn::BinOp::Or(_) => todo!("syn::BinOp::Or"),
-            syn::BinOp::BitXor(_) => todo!("syn::BinOp::BitXor"),
-            syn::BinOp::BitAnd(_) => todo!("syn::BinOp::BitAnd"),
-            syn::BinOp::BitOr(_) => todo!("syn::BinOp::BitOr"),
-            syn::BinOp::Shl(_) => todo!("syn::BinOp::Shl"),
-            syn::BinOp::Shr(_) => todo!("syn::BinOp::Shr"),
-            syn::BinOp::Eq(_) => todo!("syn::BinOp::Eq"),
-            syn::BinOp::Lt(_) => todo!("syn::BinOp::Lt"),
-            syn::BinOp::Le(_) => todo!("syn::BinOp::Le"),
-            syn::BinOp::Ne(_) => todo!("syn::BinOp::Ne"),
-            syn::BinOp::Ge(_) => todo!("syn::BinOp::Ge"),
-            syn::BinOp::Gt(_) => todo!("syn::BinOp::Gt"),
-            syn::BinOp::AddAssign(_) => todo!("syn::BinOp::AddAssign"),
-            syn::BinOp::SubAssign(_) => todo!("syn::BinOp::SubAssign"),
-            syn::BinOp::MulAssign(_) => todo!("syn::BinOp::MulAssign"),
-            syn::BinOp::DivAssign(_) => todo!("syn::BinOp::DivAssign"),
-            syn::BinOp::RemAssign(_) => todo!("syn::BinOp::RemAssign"),
-            syn::BinOp::BitXorAssign(_) => todo!("syn::BinOp::BitXorAssign"),
-            syn::BinOp::BitAndAssign(_) => todo!("syn::BinOp::BitAndAssign"),
-            syn::BinOp::BitOrAssign(_) => todo!("syn::BinOp::BitOrAssign"),
-            syn::BinOp::ShlAssign(_) => todo!("syn::BinOp::ShlAssign"),
-            syn::BinOp::ShrAssign(_) => todo!("syn::BinOp::ShrAssign"),
+        let method_name = match self.op {
+            syn::BinOp::Add(_) => syn::Ident::new("add", Span::call_site()),
+            syn::BinOp::Sub(_) => syn::Ident::new("sub", Span::call_site()),
+            syn::BinOp::Mul(_) => syn::Ident::new("mul", Span::call_site()),
+            syn::BinOp::Div(_) => syn::Ident::new("div", Span::call_site()),
+            syn::BinOp::Rem(_) => syn::Ident::new("rem", Span::call_site()),
+            syn::BinOp::And(_) => syn::Ident::new("and", Span::call_site()),
+            syn::BinOp::Or(_) => syn::Ident::new("or", Span::call_site()),
+            syn::BinOp::BitXor(_) => syn::Ident::new("bitXor", Span::call_site()),
+            syn::BinOp::BitAnd(_) => syn::Ident::new("bitAnd", Span::call_site()),
+            syn::BinOp::BitOr(_) => syn::Ident::new("bitOr", Span::call_site()),
+            syn::BinOp::Shl(_) => syn::Ident::new("shl", Span::call_site()),
+            syn::BinOp::Shr(_) => syn::Ident::new("shr", Span::call_site()),
+            syn::BinOp::Eq(_) => syn::Ident::new("eq", Span::call_site()),
+            syn::BinOp::Lt(_) => syn::Ident::new("lt", Span::call_site()),
+            syn::BinOp::Le(_) => syn::Ident::new("le", Span::call_site()),
+            syn::BinOp::Ne(_) => syn::Ident::new("ne", Span::call_site()),
+            syn::BinOp::Ge(_) => syn::Ident::new("ge", Span::call_site()),
+            syn::BinOp::Gt(_) => syn::Ident::new("gt", Span::call_site()),
+            syn::BinOp::AddAssign(_) => syn::Ident::new("addAssign", Span::call_site()),
+            syn::BinOp::SubAssign(_) => syn::Ident::new("subAssign", Span::call_site()),
+            syn::BinOp::MulAssign(_) => syn::Ident::new("mulAssign", Span::call_site()),
+            syn::BinOp::DivAssign(_) => syn::Ident::new("divAssign", Span::call_site()),
+            syn::BinOp::RemAssign(_) => syn::Ident::new("remAssign", Span::call_site()),
+            syn::BinOp::BitXorAssign(_) => syn::Ident::new("bitXorAssign", Span::call_site()),
+            syn::BinOp::BitAndAssign(_) => syn::Ident::new("bitAndAssign", Span::call_site()),
+            syn::BinOp::BitOrAssign(_) => syn::Ident::new("bitOrAssign", Span::call_site()),
+            syn::BinOp::ShlAssign(_) => syn::Ident::new("shlAssign", Span::call_site()),
+            syn::BinOp::ShrAssign(_) => syn::Ident::new("shrAssign", Span::call_site()),
             _ => todo!("syn::BinOp::<unknown>"),
         };
-        call
+        syn::parse_quote! {#left.#method_name(&#right)}
     }
 }
 
