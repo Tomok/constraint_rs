@@ -169,4 +169,5 @@ mod tests {
     mod empty_struct_derived_code_test;
     #[allow(unused)]
     mod struct_derived_code_test;
+    mod multi_stmt_function_derived_code_test;
 }

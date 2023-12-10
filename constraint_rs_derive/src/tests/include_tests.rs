@@ -15,6 +15,13 @@ fn empty_struct() {
     test_input_strings(input_items_str, expected_items_str);
 }
 
+#[test]
+fn multi_stmt_function() {
+    let input_items_str = include_str!("../../../tests/multi_stmt_function/input.rs");
+    let expected_items_str = include_str!("../../../tests/multi_stmt_function/expected_output.rs");
+    test_input_strings(input_items_str, expected_items_str);
+}
+
 fn test_input_strings(input_items_str: &str, expected_items_str: &str) {
     let input: syn::ItemMod = {
         let input_mod_str = format!("mod test {{ {} }}", input_items_str);
