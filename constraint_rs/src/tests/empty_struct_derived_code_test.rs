@@ -48,13 +48,13 @@ mod test_cases {
         let v4 = u64::constrained_type(&context).fresh_value("v4");
         v4.assign_value(&solver, &4);
         let sum = u64::constrained_type(&context).fresh_value("sum");
-        solver.assert(sum._eq(&constrained_value.add(&v1, &v4)).z3());
+        solver.assert(sum._eq(&constrained_value.foo_add(&v1, &v4)).z3());
         assert_eq!(z3::SatResult::Sat, solver.check());
         let model = solver.get_model().unwrap();
         let sum_value = sum.eval(&model).unwrap();
         assert_eq!(5, sum_value);
         let v_unknown = u64::constrained_type(&context).fresh_value("v_unknown");
-        let sum2 = constrained_value.add(&v_unknown, &v1);
+        let sum2 = constrained_value.foo_add(&v_unknown, &v1);
         solver.assert(sum2._eq(&v4).z3());
         assert_eq!(z3::SatResult::Sat, solver.check());
         let model = solver.get_model().unwrap();
@@ -109,7 +109,7 @@ mod test_cases {
         let b = 2u64.constrained(context.z3_context());
         let ty = TestStructConstrainedType::new(&context);
         let to = ty.fresh_value("test_object");
-        let add_res = to.add(&a, &b);
+        let add_res = to.foo_add(&a, &b);
         let add_res_expected = 42u64.constrained(context.z3_context());
 
         let solver = z3::Solver::new(&ctx); //todo - do not call z3 directly once corresponding methods was implemented
