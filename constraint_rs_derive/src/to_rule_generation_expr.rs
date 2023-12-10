@@ -3,51 +3,58 @@ use syn::Token;
 
 use crate::parsed_impl::ParsedBlock;
 
-pub trait ToRuleGenerationExpression {
+pub trait ToRuleGeneration {
+    type Output;
+
     ///converts [self] to rust statements generating code to pass the rules equivalent to [self] to z3
-    fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr;
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output;
 }
 
-impl<'s> ToRuleGenerationExpression for ParsedBlock<'s> {
-    fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
-        self.0
-            .to_rule_generation_statements(context_variable_name_prefix)
+impl<'s> ToRuleGeneration for ParsedBlock<'s> {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
+        self.0.to_rule_generation(context_variable_name_prefix)
     }
 }
 
-impl ToRuleGenerationExpression for syn::Block {
-    fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
+impl ToRuleGeneration for syn::Block {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         //let child_stmts = self.stmts.iter().map(|s| s.to_rule_generation_statements(context_variable_name_prefix));
         match self.stmts.len() {
             0 => todo!("Empty Blocks"),
-            1 => self.stmts[0].to_rule_generation_statements(context_variable_name_prefix),
+            1 => self.stmts[0].to_rule_generation(context_variable_name_prefix),
             _ => todo!("Blocks with more than one statement"),
         }
     }
 }
 
-impl ToRuleGenerationExpression for syn::Stmt {
-    fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
+impl ToRuleGeneration for syn::Stmt {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         match self {
             syn::Stmt::Local(_) => todo!("syn::Local"),
             syn::Stmt::Item(_) => todo!("syn::Item"),
             syn::Stmt::Expr(_e, Some(_)) => todo!("syn::Expr with Semicolon"),
-            syn::Stmt::Expr(e, None) => {
-                e.to_rule_generation_statements(context_variable_name_prefix)
-            }
+            syn::Stmt::Expr(e, None) => e.to_rule_generation(context_variable_name_prefix),
             syn::Stmt::Macro(_) => todo!("syn::Macro"),
         }
     }
 }
 
-impl ToRuleGenerationExpression for syn::Expr {
-    fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
+impl ToRuleGeneration for syn::Expr {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         match self {
             syn::Expr::Array(_) => todo!("syn::Expr::Array"),
             syn::Expr::Assign(_) => todo!("syn::Expr::Assign"),
             syn::Expr::Async(_) => todo!("syn::Expr::Async"),
             syn::Expr::Await(_) => todo!("syn::Expr::Await"),
-            syn::Expr::Binary(e) => e.to_rule_generation_statements(context_variable_name_prefix),
+            syn::Expr::Binary(e) => e.to_rule_generation(context_variable_name_prefix),
             syn::Expr::Block(_) => todo!("syn::Expr::Binary"),
             syn::Expr::Break(_) => todo!("syn::Expr::Break"),
             syn::Expr::Call(_) => todo!("syn::Expr::Call"),
@@ -55,7 +62,7 @@ impl ToRuleGenerationExpression for syn::Expr {
             syn::Expr::Closure(_) => todo!("syn::Expr::Closure"),
             syn::Expr::Const(_) => todo!("syn::Expr::Const"),
             syn::Expr::Continue(_) => todo!("syn::Expr::Continue"),
-            syn::Expr::Field(f) => f.to_rule_generation_statements(context_variable_name_prefix),
+            syn::Expr::Field(f) => f.to_rule_generation(context_variable_name_prefix),
             syn::Expr::ForLoop(_) => todo!("syn::Expr::ForLoop"),
             syn::Expr::Group(_) => todo!("syn::Expr::Group"),
             syn::Expr::If(_) => todo!("syn::Expr::If"),
@@ -68,7 +75,7 @@ impl ToRuleGenerationExpression for syn::Expr {
             syn::Expr::Match(_) => todo!("syn::Expr::Match"),
             syn::Expr::MethodCall(_) => todo!("syn::Expr::MethodCall"),
             syn::Expr::Paren(_) => todo!("syn::Expr::Paren"),
-            syn::Expr::Path(e) => e.to_rule_generation_statements(context_variable_name_prefix),
+            syn::Expr::Path(e) => e.to_rule_generation(context_variable_name_prefix),
             syn::Expr::Range(_) => todo!("syn::Expr::Range"),
             syn::Expr::Reference(_) => todo!("syn::Expr::Reference"),
             syn::Expr::Repeat(_) => todo!("syn::Expr::Repeat"),
@@ -87,14 +94,12 @@ impl ToRuleGenerationExpression for syn::Expr {
     }
 }
 
-impl ToRuleGenerationExpression for syn::ExprBinary {
-    fn to_rule_generation_statements(&self, context_variable_name_prefix: &str) -> syn::Expr {
-        let left = self
-            .left
-            .to_rule_generation_statements(context_variable_name_prefix);
-        let right = self
-            .right
-            .to_rule_generation_statements(context_variable_name_prefix);
+impl ToRuleGeneration for syn::ExprBinary {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
+        let left = self.left.to_rule_generation(context_variable_name_prefix);
+        let right = self.right.to_rule_generation(context_variable_name_prefix);
         let call: syn::ExprMethodCall = match self.op {
             syn::BinOp::Add(_) => syn::parse_quote! {(#left).add(&#right)},
             syn::BinOp::Sub(_) => todo!("syn::BinOp::Sub"),
@@ -136,14 +141,18 @@ impl ToRuleGenerationExpression for syn::ExprBinary {
     }
 }
 
-impl ToRuleGenerationExpression for syn::ExprPath {
-    fn to_rule_generation_statements(&self, _context_variable_name_prefix: &str) -> syn::Expr {
+impl ToRuleGeneration for syn::ExprPath {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, _context_variable_name_prefix: &str) -> Self::Output {
         syn::Expr::Path(self.clone())
     }
 }
 
-impl ToRuleGenerationExpression for syn::ExprField {
-    fn to_rule_generation_statements(&self, _context_variable_name_prefix: &str) -> syn::Expr {
+impl ToRuleGeneration for syn::ExprField {
+    type Output = syn::Expr;
+
+    fn to_rule_generation(&self, _context_variable_name_prefix: &str) -> Self::Output {
         if !self.attrs.is_empty() {
             todo!("Attributes for syn::ExprField")
         }
@@ -175,7 +184,7 @@ mod test {
     fn test_simple_add_block() {
         let input: syn::Block = syn::parse_quote!({ a + b });
         let expected: syn::Expr = syn::parse_quote!(&(a).add(&b));
-        let res = input.to_rule_generation_statements("A.add");
+        let res = input.to_rule_generation("A.add");
         assert_eq!(expected, res);
     }
 }
