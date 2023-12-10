@@ -366,13 +366,6 @@ impl<'s> ParsedFnArg<'s> {
         }
     }
 
-    pub fn constrained_type_call(&self, context_var_expr: &syn::Expr) -> syn::ExprCall {
-        match self {
-            ParsedFnArg::Receiver(_) => todo!("ParsedFnArg::Receiver"),
-            ParsedFnArg::Typed(t) => t.constrained_type_call(context_var_expr),
-        }
-    }
-
     pub fn to_constrained_value_impl_func_args(&self) -> syn::FnArg {
         match self {
             ParsedFnArg::Receiver(r) => r.to_constrained_value_impl_func_args(),
