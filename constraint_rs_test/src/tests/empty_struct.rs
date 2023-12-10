@@ -4,8 +4,6 @@ use constraint_rs::{ConstrainedType, ConstrainedValue, HasConstrainedType};
 
 #[constrained_mod]
 mod test_struct {
-    use constraint_rs::{ConstrainedType, ConstrainedValue};
-
     #[derive(PartialEq, Eq, Debug)]
     pub struct TestStruct;
 

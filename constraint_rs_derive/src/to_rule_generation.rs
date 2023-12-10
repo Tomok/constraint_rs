@@ -1,6 +1,3 @@
-use proc_macro2::Span;
-use syn::Token;
-
 use crate::parsed_impl::ParsedBlock;
 
 pub trait ToRuleGeneration {

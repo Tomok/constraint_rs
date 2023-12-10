@@ -82,16 +82,12 @@ pub fn derive_constraint_type(input: proc_macro::TokenStream) -> proc_macro::Tok
 
 enum ParsedDeriveInput {
     Struct(ParsedStruct),
-    Enum(),  //todo
-    Union(), //todo
 }
 
 impl ParsedDeriveInput {
     pub fn to_syn_items(&self) -> Vec<syn::Item> {
         match self {
             ParsedDeriveInput::Struct(s) => s.to_syn_items(vec![]),
-            ParsedDeriveInput::Enum() => todo!("ParsedDeriveInput::Enum"),
-            ParsedDeriveInput::Union() => todo!("ParsedDeriveInput::Union"),
         }
     }
 }
