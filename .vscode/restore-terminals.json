@@ -1,0 +1,46 @@
+{
+    "artificialDelayMilliseconds": 100,
+    "keepExistingTerminalsOpen": false,
+    "runOnStartup": true,
+    "terminals": [
+        {
+            "splitTerminals": [
+                {
+                    "commands": [
+                        "export RUST_BACKTRACE=1"
+                    ]
+                }
+            ]
+        },
+        {
+            "splitTerminals": [
+                {
+                    "commands": [
+                        "export RUST_BACKTRACE=1",
+                        "cd constraint_rs"
+                    ]
+                }
+            ]
+        },
+        {
+            "splitTerminals": [
+                {
+                    "commands": [
+                        "export RUST_BACKTRACE=1",
+                        "cd constraint_rs_derive"
+                    ]
+                }
+            ]
+        },
+        {
+            "splitTerminals": [
+                {
+                    "commands": [
+                        "export RUST_BACKTRACE=1",
+                        "cd constraint_rs_test"
+                    ]
+                }
+            ]
+        }
+    ]
+}
