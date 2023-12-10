@@ -565,13 +565,13 @@ fn method_to_rec_func_declaration_stmt(
         let v = i.gen_add_def_arg(&self_dummy_ident);
         syn::parse_quote! {constraint_rs::ConstrainedValue::z3(#v)}
     });
-    let body: syn::Expr = m.block().to_rule_generation(&name); //todo: pass self_dummy_ident
+    let body = m.block().to_rule_generation(&name); //todo: pass self_dummy_ident
     syn::parse_quote!(
         {
             #(#arg_creation_let_stmts;)*
             #res_ident.#ident.add_def(
                 &[#(#args),*],
-                constraint_rs::ConstrainedValue::z3(#body),
+                constraint_rs::ConstrainedValue::z3(& #body),
             );
         }
     )

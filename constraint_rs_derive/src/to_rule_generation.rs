@@ -24,23 +24,135 @@ impl ToRuleGeneration for syn::Block {
     fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         //let child_stmts = self.stmts.iter().map(|s| s.to_rule_generation_statements(context_variable_name_prefix));
         match self.stmts.len() {
-            0 => todo!("Empty Blocks"),
-            1 => self.stmts[0].to_rule_generation(context_variable_name_prefix),
-            _ => todo!("Blocks with more than one statement"),
+            0 => todo!("Empty syn::Block"),
+            1 => match &self.stmts[0] {
+                syn::Stmt::Local(_) => todo!("syn::Local"),
+                syn::Stmt::Item(_) => todo!("syn::Item"),
+                syn::Stmt::Expr(e, None) => e.to_rule_generation(context_variable_name_prefix),
+                syn::Stmt::Expr(_e, Some(_)) => todo!("single expression in syn::Block with ;"),
+                syn::Stmt::Macro(_) => todo!("syn::Macro"),
+            },
+            _ => {
+                let stmts = self
+                    .stmts
+                    .iter()
+                    .map(|s| s.to_rule_generation(context_variable_name_prefix));
+                syn::parse_quote!({#(#stmts)*})
+            }
         }
     }
 }
 
 impl ToRuleGeneration for syn::Stmt {
-    type Output = syn::Expr;
+    type Output = syn::Stmt;
 
     fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         match self {
-            syn::Stmt::Local(_) => todo!("syn::Local"),
+            syn::Stmt::Local(l) => {
+                syn::Stmt::Local(l.to_rule_generation(context_variable_name_prefix))
+            }
             syn::Stmt::Item(_) => todo!("syn::Item"),
             syn::Stmt::Expr(_e, Some(_)) => todo!("syn::Expr with Semicolon"),
-            syn::Stmt::Expr(e, None) => e.to_rule_generation(context_variable_name_prefix),
+            syn::Stmt::Expr(e, None) => {
+                syn::Stmt::Expr(e.to_rule_generation(context_variable_name_prefix), None)
+            }
             syn::Stmt::Macro(_) => todo!("syn::Macro"),
+        }
+    }
+}
+
+impl ToRuleGeneration for syn::Local {
+    type Output = syn::Local;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
+        if !self.attrs.is_empty() {
+            todo!("syn::Local with non empty attributes");
+        }
+        let let_token = self.let_token.clone();
+        let pat = self.pat.to_rule_generation(context_variable_name_prefix);
+        let init = self
+            .init
+            .as_ref()
+            .map(|i| i.to_rule_generation(context_variable_name_prefix));
+        let semi_token = self.semi_token.clone();
+        syn::Local {
+            attrs: vec![],
+            let_token,
+            pat,
+            init,
+            semi_token,
+        }
+    }
+}
+
+impl ToRuleGeneration for syn::Pat {
+    type Output = syn::Pat;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
+        match self {
+            syn::Pat::Const(_) => todo!("syn::Pat::Const"),
+            syn::Pat::Ident(pi) => {
+                syn::Pat::Ident(pi.to_rule_generation(context_variable_name_prefix))
+            }
+            syn::Pat::Lit(_) => todo!("syn::Pat::Lit"),
+            syn::Pat::Macro(_) => todo!("syn::Pat::Macro"),
+            syn::Pat::Or(_) => todo!("syn::Pat::Or"),
+            syn::Pat::Paren(_) => todo!("syn::Pat::Paren"),
+            syn::Pat::Path(_) => todo!("syn::Pat::Path"),
+            syn::Pat::Range(_) => todo!("syn::Pat::Range"),
+            syn::Pat::Reference(_) => todo!("syn::Pat::Reference"),
+            syn::Pat::Rest(_) => todo!("syn::Pat::Rest"),
+            syn::Pat::Slice(_) => todo!("syn::Pat::Slice"),
+            syn::Pat::Struct(_) => todo!("syn::Pat::Struct"),
+            syn::Pat::Tuple(_) => todo!("syn::Pat::Tuple"),
+            syn::Pat::TupleStruct(_) => todo!("syn::Pat::TupleStruct"),
+            syn::Pat::Type(_) => todo!("syn::Pat::Type"),
+            syn::Pat::Verbatim(_) => todo!("syn::Pat::Verbatim"),
+            syn::Pat::Wild(_) => todo!("syn::Pat::Wild"),
+            unknown => todo!("syn::Pat::_ - {:#?}", unknown),
+        }
+    }
+}
+
+impl ToRuleGeneration for syn::PatIdent {
+    type Output = syn::PatIdent;
+
+    fn to_rule_generation(&self, _context_variable_name_prefix: &str) -> Self::Output {
+        if !self.attrs.is_empty() {
+            todo!("syn::PatIdent with non empty attributes");
+        }
+        if self.by_ref.is_some() {
+            todo!("syn::PatIdent with by_ref");
+        }
+        if self.mutability.is_some() {
+            todo!("mutable syn::PatIdent");
+        }
+        if self.subpat.is_some() {
+            todo!("PatIdent with subpat");
+        }
+        syn::PatIdent {
+            attrs: vec![],
+            by_ref: None,
+            mutability: None,
+            ident: self.ident.clone(), //TODO: avoid naming conflicts...
+            subpat: None,
+        }
+    }
+}
+
+impl ToRuleGeneration for syn::LocalInit {
+    type Output = syn::LocalInit;
+
+    fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
+        let eq_token = self.eq_token.clone();
+        if self.diverge.is_some() {
+            todo!("syn::LocalInit with diverge != None");
+        }
+        let expr = Box::new(self.expr.to_rule_generation(context_variable_name_prefix));
+        syn::LocalInit {
+            eq_token,
+            expr,
+            diverge: None,
         }
     }
 }
@@ -54,7 +166,9 @@ impl ToRuleGeneration for syn::Expr {
             syn::Expr::Assign(_) => todo!("syn::Expr::Assign"),
             syn::Expr::Async(_) => todo!("syn::Expr::Async"),
             syn::Expr::Await(_) => todo!("syn::Expr::Await"),
-            syn::Expr::Binary(e) => e.to_rule_generation(context_variable_name_prefix),
+            syn::Expr::Binary(e) => {
+                syn::Expr::MethodCall(e.to_rule_generation(context_variable_name_prefix))
+            }
             syn::Expr::Block(_) => todo!("syn::Expr::Binary"),
             syn::Expr::Break(_) => todo!("syn::Expr::Break"),
             syn::Expr::Call(_) => todo!("syn::Expr::Call"),
@@ -95,13 +209,13 @@ impl ToRuleGeneration for syn::Expr {
 }
 
 impl ToRuleGeneration for syn::ExprBinary {
-    type Output = syn::Expr;
+    type Output = syn::ExprMethodCall;
 
     fn to_rule_generation(&self, context_variable_name_prefix: &str) -> Self::Output {
         let left = self.left.to_rule_generation(context_variable_name_prefix);
         let right = self.right.to_rule_generation(context_variable_name_prefix);
         let call: syn::ExprMethodCall = match self.op {
-            syn::BinOp::Add(_) => syn::parse_quote! {(#left).add(&#right)},
+            syn::BinOp::Add(_) => syn::parse_quote! {#left.add(&#right)},
             syn::BinOp::Sub(_) => todo!("syn::BinOp::Sub"),
             syn::BinOp::Mul(_) => todo!("syn::BinOp::Mul"),
             syn::BinOp::Div(_) => todo!("syn::BinOp::Div"),
@@ -131,13 +245,7 @@ impl ToRuleGeneration for syn::ExprBinary {
             syn::BinOp::ShrAssign(_) => todo!("syn::BinOp::ShrAssign"),
             _ => todo!("syn::BinOp::<unknown>"),
         };
-        let call = Box::new(syn::Expr::MethodCall(call));
-        syn::Expr::Reference(syn::ExprReference {
-            attrs: vec![],
-            and_token: Token![&](Span::call_site()),
-            mutability: None,
-            expr: call,
-        })
+        call
     }
 }
 
@@ -168,7 +276,7 @@ impl ToRuleGeneration for syn::ExprField {
             }
             let member = &self.member;
             return syn::parse_quote! {
-                &self_dummy.#member
+                self_dummy.#member
             };
         }
 
@@ -183,7 +291,7 @@ mod test {
     #[test]
     fn test_simple_add_block() {
         let input: syn::Block = syn::parse_quote!({ a + b });
-        let expected: syn::Expr = syn::parse_quote!(&(a).add(&b));
+        let expected: syn::Expr = syn::parse_quote!(a.add(&b));
         let res = input.to_rule_generation("A.add");
         assert_eq!(expected, res);
     }

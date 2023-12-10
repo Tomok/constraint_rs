@@ -39,7 +39,7 @@ where
                     constraint_rs::ConstrainedValue::z3(&a),
                     constraint_rs::ConstrainedValue::z3(&b),
                 ],
-                constraint_rs::ConstrainedValue::z3(&(a).add(&b)),
+                constraint_rs::ConstrainedValue::z3(&a.add(&b)),
             );
         }
         res
